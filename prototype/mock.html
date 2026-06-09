@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>热读 · 样板（克制但有张力）</title>
+<style>
+  :root{
+    --ink:#141414;
+    --ink-2:#5c5c5c;
+    --ink-3:#9b9b9b;
+    --line:#ededed;
+    --bg:#f7f7f4;
+    --card:#ffffff;
+    --accent:#1f4d3f;      /* 墨绿 */
+    --accent-2:#2e7d63;    /* 亮墨绿（点缀/能量） */
+    --up:#c0392b;          /* 涨/热 红 */
+    --down:#1f7a4d;        /* 跌 绿 */
+    --font:-apple-system,"PingFang SC","Helvetica Neue",Arial,sans-serif;
+    --serif:"Songti SC","Noto Serif SC",Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+  body{font-family:var(--font);background:#e7e7e3;color:var(--ink);padding:48px 24px 90px;line-height:1.6;}
+  .head{max-width:760px;margin:0 auto 40px;}
+  .head h1{font-size:28px;font-weight:800;letter-spacing:1px;}
+  .head .sub{color:var(--ink-2);font-size:14px;margin-top:8px;}
+  .head .tags{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;}
+  .head .tags span{font-size:12px;color:var(--ink-2);background:#fff;border:1px solid var(--line);padding:4px 12px;border-radius:999px;}
+
+  .gallery{max-width:760px;margin:0 auto;display:flex;gap:44px;justify-content:center;flex-wrap:wrap;}
+  .screen-wrap{width:330px;}
+  .screen-title{text-align:center;font-size:13px;color:var(--ink-2);margin-bottom:14px;letter-spacing:1px;}
+
+  .phone{width:330px;height:710px;background:var(--bg);border-radius:44px;border:10px solid #111;box-shadow:0 26px 64px rgba(0,0,0,.2);overflow:hidden;position:relative;display:flex;flex-direction:column;}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:26px;background:#111;border-radius:0 0 16px 16px;z-index:30;}
+  .statusbar{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:12px;font-weight:600;flex-shrink:0;}
+  .scroll{flex:1;overflow-y:auto;}
+  .scroll::-webkit-scrollbar{display:none;}
+  .pad{padding:0 20px;}
+
+  /* —— 顶部品牌行 —— */
+  .topbar{display:flex;align-items:baseline;justify-content:space-between;padding:2px 0 4px;}
+  .topbar .logo{font-size:22px;font-weight:800;letter-spacing:2px;}
+  .topbar .live{font-size:10px;color:var(--up);font-weight:700;letter-spacing:1px;display:flex;align-items:center;gap:5px;}
+  .topbar .live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--up);animation:blink 1.4s infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  .date{font-size:11px;color:var(--ink-3);letter-spacing:1.5px;margin-bottom:14px;}
+
+  /* —— ① 市场情绪条（放大数字 + 涨跌色） —— */
+  .ticker{display:flex;gap:8px;margin-bottom:18px;overflow:hidden;}
+  .tk{flex:1;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;}
+  .tk .k{font-size:10px;color:var(--ink-3);letter-spacing:.5px;}
+  .tk .v{font-size:19px;font-weight:800;letter-spacing:.3px;margin-top:3px;font-variant-numeric:tabular-nums;}
+  .tk .c{font-size:11px;font-weight:700;margin-top:1px;}
+  .tk .c.up{color:var(--up);} .tk .c.down{color:var(--down);}
+
+  /* —— ② Top1 头条强对比大卡 —— */
+  .hero{position:relative;background:linear-gradient(150deg,#1c1c1c,#0c0c0c);color:#fff;border-radius:20px;padding:20px 18px 18px;margin-bottom:10px;overflow:hidden;cursor:pointer;}
+  .hero::after{content:"01";position:absolute;right:14px;bottom:-14px;font-size:96px;font-weight:800;font-style:italic;color:rgba(255,255,255,.06);line-height:1;}
+  .hero .flag{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:1px;color:#fff;background:var(--up);padding:3px 9px;border-radius:999px;}
+  .hero h2{font-family:var(--serif);font-size:25px;font-weight:800;line-height:1.32;margin-top:14px;letter-spacing:.3px;position:relative;z-index:2;}
+  .hero .sum{font-size:12.5px;color:rgba(255,255,255,.72);margin-top:10px;line-height:1.6;position:relative;z-index:2;}
+  .hero .foot{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:11px;color:rgba(255,255,255,.5);position:relative;z-index:2;}
+  .hero .big{font-size:13px;color:#fff;font-weight:800;}
+  .hero .big em{color:#ff7a6b;font-style:normal;}
+
+  /* —— 区块标题 —— */
+  .blk{display:flex;align-items:center;justify-content:space-between;margin:22px 0 12px;}
+  .blk .t{font-size:18px;font-weight:800;letter-spacing:.5px;}
+  .blk .t .fire{color:var(--up);}
+  .blk .m{font-size:11px;color:var(--ink-3);}
+
+  /* —— ③ 钩子标题热榜 + ④ 热度条 —— */
+  .rk{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s;}
+  .rk:last-child{border-bottom:none;}
+  .rk:active{background:var(--accent-soft,#eef3f0);}
+  .rk .no{font-size:17px;font-weight:800;font-style:italic;color:var(--ink-3);width:22px;text-align:center;flex-shrink:0;line-height:1.3;font-variant-numeric:tabular-nums;}
+  .rk.t1 .no,.rk.t2 .no,.rk.t3 .no{color:var(--up);}
+  .rk .mid{flex:1;min-width:0;}
+  .rk .tt{font-size:14px;font-weight:700;color:var(--ink);line-height:1.4;}
+  .rk .bar{height:3px;border-radius:2px;background:var(--line);margin-top:8px;overflow:hidden;}
+  .rk .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent-2),var(--up));border-radius:2px;width:0;animation:grow 1s cubic-bezier(.2,.8,.2,1) forwards;}
+  @keyframes grow{to{width:var(--w,50%)}}
+  .rk .sub{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:10.5px;color:var(--ink-3);}
+  .rk .hot{font-weight:700;color:var(--up);font-variant-numeric:tabular-nums;}
+  .rk .tag{color:var(--accent);}
+  .rk .trend{font-size:9px;padding:1px 6px;border-radius:999px;font-weight:700;}
+  .rk .trend.up{color:var(--up);background:#fbeceb;}
+  .rk .trend.new{color:#fff;background:var(--accent);}
+
+  /* —— 频道 segs —— */
+  .segs{display:flex;gap:20px;padding:4px 20px 0;border-bottom:1px solid var(--line);}
+  .segs .s{font-size:14px;color:var(--ink-3);padding-bottom:10px;position:relative;font-weight:600;}
+  .segs .s.on{color:var(--ink);font-weight:800;}
+  .segs .s.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2.5px;background:var(--up);border-radius:2px;}
+
+  /* —— 要闻卡片 —— */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 16px;margin-bottom:10px;cursor:pointer;transition:transform .12s;}
+  .card:active{transform:scale(.985);}
+  .card .meta{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:10.5px;color:var(--ink-3);}
+  .chip{font-size:10px;padding:2px 8px;border-radius:999px;background:var(--accent-soft,#eef3f0);color:var(--accent);font-weight:700;}
+  .card h3{font-size:15px;font-weight:800;line-height:1.42;letter-spacing:.2px;}
+  .card p{font-size:12px;color:var(--ink-2);margin-top:6px;line-height:1.6;}
+  .card .why{margin-top:10px;font-size:11.5px;color:var(--accent);line-height:1.55;border-left:2px solid var(--accent);padding-left:9px;}
+
+  .tabbar{height:62px;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;flex-shrink:0;}
+  .tabbar .t{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;color:var(--ink-3);}
+  .tabbar .t.on{color:var(--accent);font-weight:700;}
+  .tabbar .ic{width:20px;height:20px;border:1.8px solid currentColor;border-radius:5px;}
+  .tabbar .ic.c{border-radius:50%;}
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>热读 · 样板 A「克制但有张力」</h1>
+    <div class="sub">黑白灰高级基调不变，靠①放大数字涨跌 ②Top1 强对比头条 ③钩子标题 ④轻动效制造张力。对比版用。</div>
+    <div class="tags"><span>放大数字</span><span>强对比头条</span><span>钩子标题</span><span>热度条动效</span><span>克制配色</span></div>
+  </div>
+
+  <div class="gallery">
+
+    <!-- A. 首页简报 -->
+    <div class="screen-wrap">
+      <div class="screen-title">① 首页简报 · 头条区</div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span></span></div>
+        <div class="scroll">
+          <div class="pad" style="padding-top:6px">
+            <div class="topbar"><span class="logo">热读</span><span class="live">实时更新中</span></div>
+            <div class="date">6 月 8 日 周一 · 今日 142 条热点已为你筛选</div>
+
+            <!-- 市场情绪条 -->
+            <div class="ticker">
+              <div class="tk"><div class="k">上证指数</div><div class="v">3,021</div><div class="c up">+1.24% ▲</div></div>
+              <div class="tk"><div class="k">纳指期货</div><div class="v">19,840</div><div class="c up">+0.62% ▲</div></div>
+              <div class="tk"><div class="k">比特币</div><div class="v">10.2万</div><div class="c down">-2.10% ▼</div></div>
+            </div>
+
+            <!-- Top1 强对比头条 -->
+            <div class="hero">
+              <span class="flag">🔥 今日最热</span>
+              <h2>降准落地：万亿资金涌入，谁先吃到这波红利？</h2>
+              <div class="sum">央行全面降准 0.5 个百分点，时点早于市场预期，成长板块与利率敏感行业率先反应。</div>
+              <div class="foot"><span class="big"><em>99万</em> 热度</span><span>·</span><span>5 源交叉</span><span>·</span><span>2 小时前</span></div>
+            </div>
+
+            <!-- 今日热榜（钩子标题 + 热度条） -->
+            <div class="blk"><span class="t">今日热榜 <span class="fire">🔥</span></span><span class="m">全网实时</span></div>
+
+            <div class="rk t1"><span class="no">2</span><div class="mid">
+              <div class="tt">英伟达冲上 4 万亿：AI 泡沫还是新王朝？</div>
+              <div class="bar"><i style="--w:92%"></i></div>
+              <div class="sub"><span class="trend up">▲ 飙升</span><span class="tag">科技</span><span class="hot">92.6万</span></div>
+            </div></div>
+
+            <div class="rk t2"><span class="no">3</span><div class="mid">
+              <div class="tt">并购重组新规来了，A 股要变天？</div>
+              <div class="bar"><i style="--w:80%"></i></div>
+              <div class="sub"><span class="trend new">新</span><span class="tag">金融</span><span class="hot">76.5万</span></div>
+            </div></div>
+
+            <div class="rk t3"><span class="no">4</span><div class="mid">
+              <div class="tt">成本暴降 60%：大模型价格战，应用层洗牌开始</div>
+              <div class="bar"><i style="--w:71%"></i></div>
+              <div class="sub"><span class="trend up">▲ 飙升</span><span class="tag">AI</span><span class="hot">70.3万</span></div>
+            </div></div>
+
+            <div class="rk"><span class="no">5</span><div class="mid">
+              <div class="tt">某独角兽悄悄递表美股，估值或翻倍</div>
+              <div class="bar"><i style="--w:58%"></i></div>
+              <div class="sub"><span class="tag">金融</span><span class="hot">61.0万</span></div>
+            </div></div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="t on"><div class="ic"></div>简报</div>
+          <div class="t"><div class="ic"></div>频道</div>
+          <div class="t"><div class="ic c"></div>报告</div>
+          <div class="t"><div class="ic"></div>圈子</div>
+          <div class="t"><div class="ic c"></div>我的</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B. 科技频道热榜 -->
+    <div class="screen-wrap">
+      <div class="screen-title">② 科技频道 · 热榜</div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>频道</span></div>
+        <div class="segs">
+          <div class="s on">科技</div><div class="s">金融</div><div class="s">AI</div><div class="s">宏观</div>
+        </div>
+        <div class="scroll">
+          <div class="pad" style="padding-top:14px">
+
+            <!-- 频道 Top1 强对比 -->
+            <div class="hero">
+              <span class="flag">🔥 科技 No.1</span>
+              <h2>出海东南亚：大厂电商的最后一张底牌？</h2>
+              <div class="sum">国内增长见顶，头部平台以低价 + 物流补贴杀入印尼，三季度上线。</div>
+              <div class="foot"><span class="big"><em>92.6万</em> 热度</span><span>·</span><span>36Kr 等 4 源</span></div>
+            </div>
+
+            <div class="blk"><span class="t">科技热榜 TOP 10</span><span class="m">9:41 更新</span></div>
+
+            <div class="rk t1"><span class="no">2</span><div class="mid">
+              <div class="tt">三千档折叠屏来了，旗舰还卖得动吗？</div>
+              <div class="bar"><i style="--w:88%"></i></div>
+              <div class="sub"><span class="trend up">▲ 飙升</span><span class="hot">81.0万</span></div>
+            </div></div>
+
+            <div class="rk t2"><span class="no">3</span><div class="mid">
+              <div class="tt">算法推荐被套上"紧箍咒"，平台流量逻辑要改</div>
+              <div class="bar"><i style="--w:77%"></i></div>
+              <div class="sub"><span class="trend new">新</span><span class="hot">70.3万</span></div>
+            </div></div>
+
+            <div class="rk t3"><span class="no">4</span><div class="mid">
+              <div class="tt">L3 自动驾驶再扩城，谁是最大赢家？</div>
+              <div class="bar"><i style="--w:64%"></i></div>
+              <div class="sub"><span class="trend up">▲</span><span class="hot">58.7万</span></div>
+            </div></div>
+
+            <div class="rk"><span class="no">5</span><div class="mid">
+              <div class="tt">国产操作系统装机量破纪录</div>
+              <div class="bar"><i style="--w:54%"></i></div>
+              <div class="sub"><span class="hot">49.2万</span></div>
+            </div></div>
+
+            <div class="rk"><span class="no">6</span><div class="mid">
+              <div class="tt">云厂商再掀价格战，存储直降四成</div>
+              <div class="bar"><i style="--w:45%"></i></div>
+              <div class="sub"><span class="hot">36.8万</span></div>
+            </div></div>
+
+            <!-- 要闻解读 -->
+            <div class="blk"><span class="t">要闻解读</span><span class="m">看完热度看门道</span></div>
+            <div class="card">
+              <div class="meta"><span class="chip">科技</span><span>·</span><span>1 小时前</span></div>
+              <h3>出海东南亚：大厂电商的最后一张底牌？</h3>
+              <p>对标本地龙头，以低价 + 物流补贴切入，预计三季度上线。</p>
+              <div class="why">为何重要：国内见顶后，出海是头部平台第二曲线的关键一战。</div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="t"><div class="ic"></div>简报</div>
+          <div class="t on"><div class="ic"></div>频道</div>
+          <div class="t"><div class="ic c"></div>报告</div>
+          <div class="t"><div class="ic"></div>圈子</div>
+          <div class="t"><div class="ic c"></div>我的</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

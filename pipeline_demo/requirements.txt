@@ -1,0 +1,4 @@
+# 「热读」内容管线 Demo 依赖
+# 最小依赖原则：核心只需 feedparser；LLM 摘要为可选
+feedparser>=6.0.0
+requests>=2.28.0

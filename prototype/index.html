@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>热读 · 界面原型</title>
+<style>
+  :root{
+    /* —— 终端·情报流：深石墨底 + 数据高密度 + 单色高亮（琥珀金 / 涨跌红绿）—— */
+    --ink:#eceef0;          /* 主文字（浅）*/
+    --ink-2:#9aa0a6;        /* 次级文字 */
+    --ink-3:#6b7177;        /* 弱化文字 */
+    --line:#23262b;         /* 深色分割线 */
+    --bg:#0d0f12;           /* 屏幕底（石墨黑）*/
+    --card:#16191e;         /* 面板 */
+    --card-2:#1c2026;       /* 略亮面板 */
+    --accent:#f3b13b;       /* 品牌琥珀金（终端强调色，承载品牌/解读/链接）*/
+    --accent-2:#ffce6b;     /* 亮琥珀 */
+    --accent-soft:rgba(243,177,59,.13);
+    --up:#ff5b4d;           /* 涨/热 红（能量色：热度、上涨）*/
+    --down:#27c281;         /* 跌 绿 */
+    --font:-apple-system,"PingFang SC","Helvetica Neue","SF Pro Text",Arial,sans-serif;
+    --mono:"SF Mono","Roboto Mono","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+  body{font-family:var(--font);background:#08090b;color:var(--ink);padding:48px 24px 90px;line-height:1.55;}
+  .head{max-width:1200px;margin:0 auto 40px;}
+  .head h1{font-size:28px;font-weight:800;letter-spacing:1px;}
+  .head .sub{color:var(--ink-2);font-size:14px;margin-top:8px;}
+  .head .tags{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;}
+  .head .tags span{font-size:12px;color:var(--ink-2);background:var(--card);border:1px solid var(--line);padding:4px 12px;border-radius:999px;}
+
+  .gallery{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:48px 40px;justify-items:center;}
+  .screen-wrap{width:330px;}
+  .screen-title{text-align:center;font-size:13px;color:var(--ink-2);margin-bottom:14px;letter-spacing:1px;}
+
+  /* —— 手机框 —— */
+  .phone{width:330px;height:710px;background:var(--bg);border-radius:44px;border:10px solid #000;box-shadow:0 26px 64px rgba(0,0,0,.5);overflow:hidden;position:relative;display:flex;flex-direction:column;}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:30;}
+  .statusbar{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:12px;font-weight:600;flex-shrink:0;}
+  .scroll{flex:1;overflow-y:auto;}
+  .scroll::-webkit-scrollbar{display:none;}
+  .pad{padding:0 20px;}
+
+  /* —— 顶部品牌行 —— */
+  .topbar{display:flex;align-items:baseline;justify-content:space-between;padding:2px 0 4px;}
+  .topbar .logo{font-size:22px;font-weight:800;letter-spacing:2px;color:var(--accent);}
+  .topbar .live{font-size:10px;color:var(--up);font-weight:700;letter-spacing:1px;display:flex;align-items:center;gap:5px;}
+  .topbar .live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--up);animation:blink 1.4s infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  .date{font-size:11px;color:var(--ink-3);letter-spacing:1.2px;margin-bottom:14px;font-family:var(--mono);}
+  .slogan{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:13px 15px;margin-bottom:16px;position:relative;overflow:hidden;}
+  .slogan .lead{font-size:10px;color:var(--accent);font-weight:800;letter-spacing:2px;font-family:var(--mono);}
+  .slogan .txt{font-size:13.5px;font-weight:700;line-height:1.5;margin-top:6px;letter-spacing:.2px;position:relative;z-index:2;color:var(--ink);}
+  .slogan .txt em{font-style:normal;color:var(--accent);border-bottom:1px solid var(--accent);}
+  .h-title{font-size:21px;font-weight:800;letter-spacing:.5px;}
+
+  /* —— 市场情绪条 —— */
+  .ticker{display:flex;gap:8px;margin-bottom:16px;}
+  .tk{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;}
+  .tk .k{font-size:10px;color:var(--ink-3);letter-spacing:.5px;}
+  .tk .v{font-size:18px;font-weight:800;letter-spacing:.3px;margin-top:3px;font-variant-numeric:tabular-nums;font-family:var(--mono);}
+  .tk .c{font-size:11px;font-weight:700;margin-top:1px;font-family:var(--mono);}
+  .tk .c.up{color:var(--up);} .tk .c.down{color:var(--down);}
+
+  /* —— Top1 强对比头条 —— */
+  .hero{position:relative;background:linear-gradient(150deg,#1f2329,#101317);color:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 16px 16px;margin-bottom:10px;overflow:hidden;cursor:pointer;transition:transform .12s;}
+  .hero:active{transform:scale(.99);}
+  .hero::after{content:attr(data-no);position:absolute;right:12px;bottom:-18px;font-size:96px;font-weight:800;font-style:italic;color:rgba(243,177,59,.07);line-height:1;font-family:var(--mono);}
+  .hero .flag{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;letter-spacing:1px;color:#0d0f12;background:var(--accent);padding:3px 9px;border-radius:4px;font-family:var(--mono);}
+  .hero h2{font-size:19px;font-weight:800;line-height:1.36;margin-top:13px;letter-spacing:.2px;position:relative;z-index:2;color:#fff;}
+  .hero .sum{font-size:12px;color:rgba(255,255,255,.6);margin-top:9px;line-height:1.5;position:relative;z-index:2;}
+  .hero .foot{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:11px;color:var(--ink-3);position:relative;z-index:2;font-family:var(--mono);}
+  .hero .big{font-size:13px;color:#fff;font-weight:800;}
+  .hero .big em{color:var(--accent);font-style:normal;}
+
+  /* —— 区块标题 —— */
+  .blk{display:flex;align-items:center;justify-content:space-between;margin:22px 0 12px;}
+  .blk .t{font-size:16px;font-weight:800;letter-spacing:.5px;}
+  .blk .t .fire{color:var(--up);}
+  .blk .m{font-size:11px;color:var(--ink-3);}
+
+  /* —— 钩子热榜 + 热度条动效 —— */
+  .rk{display:flex;align-items:flex-start;gap:12px;padding:11px 0;cursor:pointer;transition:background .12s;}
+  .rk:active{background:var(--accent-soft);}
+  .rk .no{font-size:15px;font-weight:800;font-style:normal;color:var(--ink-3);width:20px;text-align:center;flex-shrink:0;line-height:1.3;font-variant-numeric:tabular-nums;font-family:var(--mono);}
+  .rk.t1 .no,.rk.t2 .no,.rk.t3 .no{color:var(--accent);}
+  .rk .mid{flex:1;min-width:0;}
+  .rk .tt{font-size:13px;font-weight:700;color:var(--ink);line-height:1.4;}
+  .rk .bar{height:3px;border-radius:2px;background:var(--line);margin-top:8px;overflow:hidden;}
+  .rk .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--up));border-radius:2px;width:0;animation:grow 1s cubic-bezier(.2,.8,.2,1) forwards;}
+  @keyframes grow{to{width:var(--w,50%)}}
+  .rk .sub{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:10.5px;color:var(--ink-3);font-family:var(--mono);}
+  .rk .hot{font-weight:700;color:var(--up);font-variant-numeric:tabular-nums;}
+  .rk .tag{color:var(--accent);}
+  .rk .trend{font-size:9px;padding:1px 6px;border-radius:3px;font-weight:700;}
+  .rk .trend.up{color:var(--up);background:rgba(255,91,77,.14);}
+  .rk .trend.new{color:#0d0f12;background:var(--accent);}
+
+  /* —— 频道 segs —— */
+  .segs{display:flex;gap:20px;padding:4px 20px 0;border-bottom:1px solid var(--line);}
+  .segs .s{font-size:13px;color:var(--ink-3);padding-bottom:10px;position:relative;font-weight:600;}
+  .segs .s.on{color:var(--ink);font-weight:800;}
+  .segs .s.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2.5px;background:var(--accent);border-radius:2px;}
+
+  /* —— 要闻卡片 —— */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 16px;margin-bottom:10px;cursor:pointer;transition:transform .12s;}
+  .card:active{transform:scale(.985);}
+  .card .meta{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:10.5px;color:var(--ink-3);}
+  .chip{font-size:10px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:700;}
+  .card h3{font-size:13.5px;font-weight:800;line-height:1.42;letter-spacing:.2px;color:var(--ink);}
+  .card p{font-size:11.5px;color:var(--ink-2);margin-top:6px;line-height:1.5;}
+  .card .why{margin-top:10px;font-size:11px;color:var(--accent);line-height:1.5;border-left:2px solid var(--accent);padding-left:9px;}
+  .card .acts{margin-left:auto;display:flex;gap:12px;}
+  .lock{color:var(--accent);font-weight:700;}
+
+  /* —— 更多 —— */
+  .more-hd{font-size:11px;color:var(--accent);font-weight:700;letter-spacing:2px;margin:20px 0 8px;}
+  .reco{display:flex;align-items:center;gap:10px;padding:9px 0;cursor:pointer;}
+  .reco .rt{font-size:12px;font-weight:600;color:var(--ink);line-height:1.4;flex:1;}
+  .reco .rm{font-size:10px;color:var(--ink-3);flex-shrink:0;}
+  .loadmore{display:block;width:100%;text-align:center;padding:12px;margin:8px 0 6px;border:1px solid var(--line);background:var(--card);border-radius:10px;font-size:12px;color:var(--ink-2);cursor:pointer;font-weight:600;}
+  .loadmore:active{background:var(--accent-soft);}
+
+  /* —— 数字速览 —— */
+  .nums{display:flex;gap:8px;margin:14px 0 4px;}
+  .num{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 12px;}
+  .num .v{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;font-family:var(--mono);}
+  .num .v small{font-size:11px;color:var(--up);font-weight:700;}
+  .num .k{font-size:10px;color:var(--ink-3);margin-top:3px;}
+
+  /* —— Tab —— */
+  .tabbar{height:62px;background:rgba(13,15,18,.92);backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;flex-shrink:0;}
+  .tabbar .t{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;color:var(--ink-3);}
+  .tabbar .t.on{color:var(--accent);font-weight:700;}
+  .tabbar .ic{width:20px;height:20px;border:1.8px solid currentColor;border-radius:5px;}
+  .tabbar .ic.c{border-radius:50%;}
+
+  /* —— 详情页 —— */
+  .navbar{height:48px;display:flex;align-items:center;padding:0 18px;gap:14px;flex-shrink:0;}
+  .navbar .back{font-size:22px;color:var(--ink);cursor:pointer;}
+  .navbar .nt{font-size:13px;color:var(--ink-2);}
+  .article h1{font-size:21px;font-weight:800;line-height:1.4;letter-spacing:.2px;color:var(--ink);}
+  .article .by{font-size:11px;color:var(--ink-3);margin:13px 0 16px;display:flex;gap:9px;font-family:var(--mono);}
+  .article .lede{font-size:13.5px;color:var(--ink);line-height:1.6;font-weight:600;padding:13px 15px;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;}
+  /* 阅读区：浅字深底、紧凑专业字号、建立节奏 */
+  .article .body{font-size:13px;color:#c8ccd1;line-height:1.7;margin-top:18px;}
+  .article .body p{margin-bottom:12px;}
+  .article .h2{font-size:14.5px;font-weight:800;color:var(--ink);margin:22px 0 9px;display:flex;align-items:center;gap:8px;}
+  .article .h2::before{content:"";width:4px;height:14px;background:var(--accent);border-radius:2px;}
+  .article .key{color:var(--ink);font-weight:700;border-bottom:2px solid var(--accent-soft);box-shadow:inset 0 -8px 0 var(--accent-soft);}
+  .article .quote{font-size:13px;color:var(--ink);line-height:1.7;padding:4px 0 4px 14px;border-left:3px solid var(--accent);margin:16px 0;}
+  .article ul.pts{margin:6px 0 4px;padding:0;list-style:none;}
+  .article ul.pts li{position:relative;padding:5px 0 5px 22px;font-size:12.5px;color:#c8ccd1;line-height:1.55;}
+  .article ul.pts li::before{content:"";position:absolute;left:4px;top:12px;width:6px;height:6px;border-radius:50%;background:var(--accent);}
+  .paywall{margin-top:0;padding:20px;background:linear-gradient(180deg,rgba(13,15,18,0),var(--bg) 40%);text-align:center;}
+  .paywall .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;}
+  .paywall h4{font-size:14px;font-weight:800;color:var(--ink);}
+  .paywall p{font-size:11px;color:var(--ink-3);margin:7px 0 14px;}
+  .btn{display:block;background:var(--accent);color:#0d0f12;text-align:center;padding:12px;border-radius:10px;font-size:13px;font-weight:800;letter-spacing:.5px;}
+  .btn.ghost{background:transparent;color:var(--ink-2);font-weight:500;font-size:11.5px;padding:9px;}
+
+  /* —— 报告 —— */
+  .report{display:flex;gap:13px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:10px;cursor:pointer;}
+  .report .thumb{width:56px;height:74px;border-radius:7px;background:linear-gradient(135deg,#3a2f12,#1c1608);border:1px solid var(--line);flex-shrink:0;}
+  .report h4{font-size:13.5px;font-weight:800;line-height:1.4;color:var(--ink);}
+  .report .d{font-size:10.5px;color:var(--ink-3);margin-top:5px;}
+  .report .price{font-size:14px;color:var(--up);font-weight:800;margin-top:9px;font-family:var(--mono);}
+  .report .price s{color:var(--ink-3);font-weight:400;font-size:10.5px;margin-left:6px;}
+
+  /* —— 我的 —— */
+  .profile{padding:20px;}
+  .avatar{width:50px;height:50px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:800;font-size:18px;}
+  .vipcard{margin:16px 0;background:linear-gradient(150deg,#26200d,#15110a);border:1px solid rgba(243,177,59,.25);color:#fff;border-radius:16px;padding:18px;position:relative;overflow:hidden;}
+  .vipcard::after{content:"VIP";position:absolute;right:12px;bottom:-10px;font-size:60px;font-weight:800;font-style:italic;color:rgba(243,177,59,.1);font-family:var(--mono);}
+  .vipcard .t{font-size:12px;color:rgba(255,255,255,.6);letter-spacing:1px;}
+  .vipcard .price{font-size:21px;font-weight:800;margin-top:5px;font-family:var(--mono);}
+  .vipcard .price small{font-size:12px;color:rgba(255,255,255,.6);font-weight:400;}
+  .vipcard .go{margin-top:13px;background:var(--accent);color:#0d0f12;text-align:center;padding:10px;border-radius:9px;font-size:12.5px;font-weight:800;position:relative;z-index:2;}
+  .menu .m{display:flex;align-items:center;padding:13px 4px;border-bottom:1px solid var(--line);font-size:13px;}
+  .menu .m .r{margin-left:auto;color:var(--ink-3);font-size:12px;}
+
+  /* —— 圈子 —— */
+  .post{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px;}
+  .post .u{display:flex;align-items:center;gap:9px;margin-bottom:9px;}
+  .post .u .a{width:28px;height:28px;border-radius:50%;background:var(--accent-soft);}
+  .post .u .n{font-size:12.5px;font-weight:700;color:var(--ink);}
+  .post .u .tag{font-size:9.5px;color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:999px;}
+  .post p{font-size:13px;color:var(--ink);line-height:1.55;font-weight:500;}
+  .post .foot{margin-top:10px;font-size:10.5px;color:var(--ink-3);display:flex;gap:16px;}
+  .event{position:relative;overflow:hidden;background:linear-gradient(150deg,#1f2329,#101317);border:1px solid var(--line);color:#fff;border-radius:14px;padding:16px;margin-bottom:14px;}
+  .event .k{font-size:10.5px;color:var(--accent);font-weight:700;letter-spacing:1px;font-family:var(--mono);}
+  .event h4{font-size:15px;font-weight:800;margin-top:6px;}
+  .event .d{font-size:11.5px;color:rgba(255,255,255,.7);margin-top:6px;}
+
+  /* —— 详情弹层 —— */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:100;padding:20px;}
+  .modal.show{display:flex;}
+  .modal .phone{box-shadow:0 30px 80px rgba(0,0,0,.6);}
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>热读 · 界面原型「终端 · 情报流」</h1>
+    <div class="sub">深石墨底 + 琥珀金强调 + 涨跌红绿，全无衬线黑体、数字用等宽字体，主打硬核资讯的专业、即时与高密度。点击榜单/卡片可进事件详情。</div>
+    <div class="tags"><span>深色终端</span><span>等宽数字</span><span>强对比头条</span><span>高信息密度</span><span>单色高亮</span></div>
+  </div>
+
+  <div class="gallery">
+
+    <!-- 1. 首页简报 -->
+    <div class="screen-wrap">
+      <div class="screen-title">① 今日简报（首页）</div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span></span></div>
+        <div class="scroll">
+          <div class="pad" style="padding-top:6px">
+            <div class="topbar"><span class="logo">热读</span><span class="live">实时更新中</span></div>
+            <div class="date" id="homeDate">6 月 8 日 周一 · 今日 142 条热点已为你筛选</div>
+
+            <div class="slogan">
+              <div class="lead">读懂趋势</div>
+              <div class="txt" id="homeSlogan">每天 <em>10 分钟</em>，读懂科技、金融、AI、宏观四个赛道最值得关注的事。</div>
+            </div>
+
+            <div class="ticker" id="homeTicker">
+              <div class="tk"><div class="k">上证指数</div><div class="v">3,021</div><div class="c up">+1.24% ▲</div></div>
+              <div class="tk"><div class="k">纳指期货</div><div class="v">19,840</div><div class="c up">+0.62% ▲</div></div>
+              <div class="tk"><div class="k">比特币</div><div class="v">10.2万</div><div class="c down">-2.10% ▼</div></div>
+            </div>
+
+            <div class="hero" id="homeHero" data-no="01">
+              <span class="flag">🔥 今日最热</span>
+              <h2>降准落地：万亿资金涌入，谁先吃到这波红利？</h2>
+              <div class="sum">央行全面降准 0.5 个百分点，时点早于市场预期，成长板块与利率敏感行业率先反应。</div>
+              <div class="foot"><span class="big"><em>99万</em> 热度</span><span>·</span><span>5 源交叉</span><span>·</span><span>2 小时前</span></div>
+            </div>
+
+            <div class="blk"><span class="t">今日热榜 <span class="fire">🔥</span></span><span class="m">全网实时</span></div>
+
+            <div id="homeHotList">
+            <div class="rk t1"><span class="no">2</span><div class="mid">
+              <div class="tt">英伟达冲上 4 万亿：AI 泡沫还是新王朝？</div>
+              <div class="bar"><i style="--w:92%"></i></div>
+              <div class="sub"><span class="trend up">▲ 飙升</span><span class="tag">科技</span><span class="hot">92.6万</span></div>
+            </div></div>
+            <div class="rk t2"><span class="no">3</span><div class="mid">
+              <div class="tt">并购重组新规来了，A 股要变天？</div>
+              <div class="bar"><i style="--w:80%"></i></div>
+              <div class="sub"><span class="trend new">新</span><span class="tag">金融</span><span class="hot">76.5万</span></div>
+            </div></div>
+            <div class="rk t3"><span class="no">4</span><div class="mid">
+              <div class="tt">成本暴降 60%：大模型价格战，应用层洗牌开始</div>
+              <div class="bar"><i style="--w:71%"></i></div>
+              <div class="sub"><span class="trend up">▲ 飙升</span><span class="tag">AI</span><span class="hot">70.3万</span></div>
+            </div></div>
+            <div class="rk"><span class="no">5</span><div class="mid">
+              <div class="tt">某独角兽悄悄递表美股，估值或翻倍</div>
+              <div class="bar"><i style="--w:58%"></i></div>
+              <div class="sub"><span class="tag">金融</span><span class="hot">61.0万</span></div>
+            </div></div>
+            <div class="rk"><span class="no">6</span><div class="mid">
+              <div class="tt">社融超预期，企业开始借钱扩张了？</div>
+              <div class="bar"><i style="--w:50%"></i></div>
+              <div class="sub"><span class="tag">宏观</span><span class="hot">47.1万</span></div>
+            </div></div>
+            </div>
+
+            <div class="loadmore" onclick="this.textContent='已加载更多内容 ✓'">查看完整榜单 ∨</div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="t on"><div class="ic"></div>简报</div>
+          <div class="t"><div class="ic"></div>频道</div>
+          <div class="t"><div class="ic c"></div>报告</div>
+          <div class="t"><div class="ic"></div>圈子</div>
+          <div class="t"><div class="ic c"></div>我的</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 科技频道 -->
+    <div class="screen-wrap">
+      <div class="screen-title">② 频道 · 科技</div>
+      <div class="phone" data-module="tech">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>频道</span></div>
+        <div class="segs"><div class="s on">科技</div><div class="s">金融</div><div class="s">AI</div><div class="s">宏观</div></div>
+        <div class="scroll">
+          <div class="pad" style="padding-top:14px">
+            <div class="hero" data-no="01">
+              <span class="flag">🔥 科技 No.1</span>
+              <h2>出海东南亚：大厂电商的最后一张底牌？</h2>
+              <div class="sum">国内增长见顶，头部平台以低价 + 物流补贴杀入印尼，三季度上线。</div>
+              <div class="foot"><span class="big"><em>92.6万</em> 热度</span><span>·</span><span>36Kr 等 4 源</span></div>
+            </div>
+
+            <div class="blk"><span class="t">科技热榜 TOP 10</span><span class="m">9:41 更新</span></div>
+            <div class="rk t1"><span class="no">2</span><div class="mid"><div class="tt">三千档折叠屏来了，旗舰还卖得动吗？</div><div class="bar"><i style="--w:88%"></i></div><div class="sub"><span class="trend up">▲ 飙升</span><span class="hot">81.0万</span></div></div></div>
+            <div class="rk t2"><span class="no">3</span><div class="mid"><div class="tt">算法推荐被套上"紧箍咒"，平台流量逻辑要改</div><div class="bar"><i style="--w:77%"></i></div><div class="sub"><span class="trend new">新</span><span class="hot">70.3万</span></div></div></div>
+            <div class="rk t3"><span class="no">4</span><div class="mid"><div class="tt">L3 自动驾驶再扩城，谁是最大赢家？</div><div class="bar"><i style="--w:64%"></i></div><div class="sub"><span class="trend up">▲</span><span class="hot">58.7万</span></div></div></div>
+            <div class="rk"><span class="no">5</span><div class="mid"><div class="tt">国产操作系统装机量破纪录</div><div class="bar"><i style="--w:54%"></i></div><div class="sub"><span class="hot">49.2万</span></div></div></div>
+            <div class="rk"><span class="no">6</span><div class="mid"><div class="tt">云厂商再掀价格战，存储直降四成</div><div class="bar"><i style="--w:45%"></i></div><div class="sub"><span class="hot">36.8万</span></div></div></div>
+
+            <div class="blk"><span class="t">要闻解读</span><span class="m">看完热度看门道</span></div>
+            <div class="card">
+              <div class="meta"><span class="chip">科技</span><span>·</span><span>1 小时前</span><span class="acts"><span>收藏</span><span class="lock">深度 🔒</span></span></div>
+              <h3>出海东南亚：大厂电商的最后一张底牌？</h3>
+              <p>对标本地龙头，以低价 + 物流补贴切入，预计三季度上线。</p>
+              <div class="why">为何重要：国内见顶后，出海是头部平台第二曲线的关键一战。</div>
+            </div>
+            <div class="card">
+              <div class="meta"><span class="chip">科技</span><span>·</span><span>3 小时前</span></div>
+              <h3>算法推荐新规征求意见，平台流量逻辑生变</h3>
+              <p>要求提供关闭个性化推荐选项，强化未成年人保护。</p>
+            </div>
+
+            <div class="more-hd">更多 · 你可能也关注</div>
+            <div class="reco" onclick="openEvent('国产操作系统装机量破纪录','科技','3 源')"><span class="rt">国产操作系统装机量破纪录</span><span class="rm">49万热度</span></div>
+            <div class="reco" onclick="openEvent('云厂商再掀价格战，存储直降四成','科技','4 源')"><span class="rt">云厂商再掀价格战，存储直降四成</span><span class="rm">36万热度</span></div>
+            <div class="loadmore" onclick="this.textContent='已加载更多内容 ✓'">加载更多 ∨</div>
+          </div>
+        </div>
+        <div class="tabbar"><div class="t"><div class="ic"></div>简报</div><div class="t on"><div class="ic"></div>频道</div><div class="t"><div class="ic c"></div>报告</div><div class="t"><div class="ic"></div>圈子</div><div class="t"><div class="ic c"></div>我的</div></div>
+      </div>
+    </div>
+
+    <!-- 2b. 金融频道 -->
+    <div class="screen-wrap">
+      <div class="screen-title">②-b 频道 · 金融</div>
+      <div class="phone" data-module="finance">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>频道</span></div>
+        <div class="segs"><div class="s">科技</div><div class="s on">金融</div><div class="s">AI</div><div class="s">宏观</div></div>
+        <div class="scroll">
+          <div class="pad" style="padding-top:14px">
+            <div class="nums">
+              <div class="num"><div class="v">3,021 <small>↑1.2%</small></div><div class="k">上证指数</div></div>
+              <div class="num"><div class="v">¥86亿</div><div class="k">今日融资</div></div>
+            </div>
+            <div class="hero" data-no="01">
+              <span class="flag">🔥 金融 No.1</span>
+              <h2>并购重组新规来了，A 股要变天？</h2>
+              <div class="sum">证监会公开征求意见，简化审核、鼓励产业整合，市场解读为政策暖风。</div>
+              <div class="foot"><span class="big"><em>88.1万</em> 热度</span><span>·</span><span>证监会 等 5 源</span></div>
+            </div>
+
+            <div class="blk"><span class="t">金融热榜 TOP 10</span><span class="m">9:41 更新</span></div>
+            <div class="rk t1"><span class="no">2</span><div class="mid"><div class="tt">某独角兽悄悄递表美股，估值或翻倍</div><div class="bar"><i style="--w:86%"></i></div><div class="sub"><span class="trend up">▲ 飙升</span><span class="hot">76.5万</span></div></div></div>
+            <div class="rk t2"><span class="no">3</span><div class="mid"><div class="tt">20 亿融资砸向 AI 芯片，资本在赌什么？</div><div class="bar"><i style="--w:73%"></i></div><div class="sub"><span class="trend up">▲</span><span class="hot">64.8万</span></div></div></div>
+            <div class="rk t3"><span class="no">4</span><div class="mid"><div class="tt">科技巨头财报炸了，盘后大涨 6%</div><div class="bar"><i style="--w:62%"></i></div><div class="sub"><span class="trend up">▲</span><span class="hot">55.3万</span></div></div></div>
+            <div class="rk"><span class="no">5</span><div class="mid"><div class="tt">北向资金单日净流入创年内新高</div><div class="bar"><i style="--w:53%"></i></div><div class="sub"><span class="hot">47.6万</span></div></div></div>
+            <div class="rk"><span class="no">6</span><div class="mid"><div class="tt">比特币重回十万美元上方</div><div class="bar"><i style="--w:45%"></i></div><div class="sub"><span class="hot">34.5万</span></div></div></div>
+
+            <div class="blk"><span class="t">要闻解读</span><span class="m">看完热度看门道</span></div>
+            <div class="card">
+              <div class="meta"><span class="chip">一级市场</span><span>·</span><span>1 小时前</span><span class="acts"><span>收藏</span><span class="lock">深度 🔒</span></span></div>
+              <h3>20 亿融资砸向 AI 芯片，资本在赌什么？</h3>
+              <p>本轮由头部产业基金领投，资金用于先进制程流片与量产。</p>
+              <div class="why">为何重要：算力国产替代主线再获资本加注，关注产业链上下游。</div>
+            </div>
+            <div class="card">
+              <div class="meta"><span class="chip">美股</span><span>·</span><span>3 小时前</span></div>
+              <h3>科技巨头财报超预期，盘后涨逾 6%</h3>
+              <p>云与广告双增长，资本开支指引上调，AI 投入持续兑现。</p>
+            </div>
+
+            <div class="more-hd">更多 · 你可能也关注</div>
+            <div class="reco" onclick="openEvent('北向资金单日净流入创年内新高','金融','3 源')"><span class="rt">北向资金单日净流入创年内新高</span><span class="rm">47万热度</span></div>
+            <div class="reco" onclick="openEvent('公募新发规模环比回暖','金融','3 源')"><span class="rt">公募新发规模环比回暖</span><span class="rm">28万热度</span></div>
+            <div class="loadmore" onclick="this.textContent='已加载更多内容 ✓'">加载更多 ∨</div>
+          </div>
+        </div>
+        <div class="tabbar"><div class="t"><div class="ic"></div>简报</div><div class="t on"><div class="ic"></div>频道</div><div class="t"><div class="ic c"></div>报告</div><div class="t"><div class="ic"></div>圈子</div><div class="t"><div class="ic c"></div>我的</div></div>
+      </div>
+    </div>
+
+    <!-- 2c. AI频道 -->
+    <div class="screen-wrap">
+      <div class="screen-title">②-c 频道 · AI</div>
+      <div class="phone" data-module="ai">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>频道</span></div>
+        <div class="segs"><div class="s">科技</div><div class="s">金融</div><div class="s on">AI</div><div class="s">宏观</div></div>
+        <div class="scroll">
+          <div class="pad" style="padding-top:14px">
+            <div class="hero" data-no="01">
+              <span class="flag">🔥 AI No.1</span>
+              <h2>成本暴降 60%：大模型价格战，应用层洗牌开始</h2>
+              <div class="sum">上下文窗口扩至百万 token，定价低于上代，套壳类工具毛利首当其冲。</div>
+              <div class="foot"><span class="big"><em>95.7万</em> 热度</span><span>·</span><span>官方博客 等 5 源</span></div>
+            </div>
+
+            <div class="blk"><span class="t">AI 热榜 TOP 10</span><span class="m">9:41 更新</span></div>
+            <div class="rk t1"><span class="no">2</span><div class="mid"><div class="tt">开源模型逼近闭源旗舰，闭源还香吗？</div><div class="bar"><i style="--w:87%"></i></div><div class="sub"><span class="trend up">▲ 飙升</span><span class="hot">83.2万</span></div></div></div>
+            <div class="rk t2"><span class="no">3</span><div class="mid"><div class="tt">Agent 框架登顶 GitHub，下一个杀手级应用？</div><div class="bar"><i style="--w:75%"></i></div><div class="sub"><span class="trend new">新</span><span class="hot">71.9万</span></div></div></div>
+            <div class="rk t3"><span class="no">4</span><div class="mid"><div class="tt">百万 token 成新标配，长文档生意要火？</div><div class="bar"><i style="--w:63%"></i></div><div class="sub"><span class="trend up">▲</span><span class="hot">60.4万</span></div></div></div>
+            <div class="rk"><span class="no">5</span><div class="mid"><div class="tt">AI 编程工具渗透率调研出炉</div><div class="bar"><i style="--w:55%"></i></div><div class="sub"><span class="hot">52.8万</span></div></div></div>
+            <div class="rk"><span class="no">6</span><div class="mid"><div class="tt">国产算力集群完成万卡组网</div><div class="bar"><i style="--w:46%"></i></div><div class="sub"><span class="hot">44.1万</span></div></div></div>
+
+            <div class="blk"><span class="t">要闻解读</span><span class="m">看完热度看门道</span></div>
+            <div class="card">
+              <div class="meta"><span class="chip">AI</span><span>·</span><span>2 小时前</span><span class="acts"><span>收藏</span><span class="lock">深度 🔒</span></span></div>
+              <h3>成本暴降 60%：应用层将如何重构？</h3>
+              <p>推理成本一年内降近一个数量级，把应用从"能不能做"推向"值不值得做"。</p>
+              <div class="why">为何重要：模型趋同、价格趋低，护城河重回数据、场景与分发。</div>
+            </div>
+            <div class="card">
+              <div class="meta"><span class="chip">AI</span><span>·</span><span>5 小时前</span></div>
+              <h3>开源大模型上线，性能逼近闭源旗舰</h3>
+              <p>以可商用许可发布，社区一周内衍生数百个微调版本。</p>
+            </div>
+
+            <div class="more-hd">更多 · 你可能也关注</div>
+            <div class="reco" onclick="openEvent('AI 编程工具渗透率调研出炉','AI','3 源')"><span class="rt">AI 编程工具渗透率调研出炉</span><span class="rm">52万热度</span></div>
+            <div class="reco" onclick="openEvent('具身智能融资热度持续走高','AI','4 源')"><span class="rt">具身智能融资热度持续走高</span><span class="rm">26万热度</span></div>
+            <div class="loadmore" onclick="this.textContent='已加载更多内容 ✓'">加载更多 ∨</div>
+          </div>
+        </div>
+        <div class="tabbar"><div class="t"><div class="ic"></div>简报</div><div class="t on"><div class="ic"></div>频道</div><div class="t"><div class="ic c"></div>报告</div><div class="t"><div class="ic"></div>圈子</div><div class="t"><div class="ic c"></div>我的</div></div>
+      </div>
+    </div>
+
+    <!-- 2d. 宏观频道 -->
+    <div class="screen-wrap">
+      <div class="screen-title">②-d 频道 · 宏观</div>
+      <div class="phone" data-module="macro">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>频道</span></div>
+        <div class="segs"><div class="s">科技</div><div class="s">金融</div><div class="s">AI</div><div class="s on">宏观</div></div>
+        <div class="scroll">
+          <div class="pad" style="padding-top:14px">
+            <div class="hero" data-no="01">
+              <span class="flag">🔥 宏观 No.1</span>
+              <h2>降准落地：万亿资金涌入，谁先吃到红利？</h2>
+              <div class="sum">央行全面降准 0.5 个百分点，流动性宽松信号明确，成长板块率先反应。</div>
+              <div class="foot"><span class="big"><em>99.0万</em> 热度</span><span>·</span><span>央行官网 等 5 源</span></div>
+            </div>
+
+            <div class="blk"><span class="t">宏观热榜 TOP 10</span><span class="m">9:41 更新</span></div>
+            <div class="rk t1"><span class="no">2</span><div class="mid"><div class="tt">社融超预期，企业开始借钱扩张了？</div><div class="bar"><i style="--w:84%"></i></div><div class="sub"><span class="trend up">▲ 飙升</span><span class="hot">78.4万</span></div></div></div>
+            <div class="rk t2"><span class="no">3</span><div class="mid"><div class="tt">提振消费一揽子举措落地，哪些行业受益？</div><div class="bar"><i style="--w:72%"></i></div><div class="sub"><span class="trend new">新</span><span class="hot">66.2万</span></div></div></div>
+            <div class="rk t3"><span class="no">4</span><div class="mid"><div class="tt">CPI 温和回升，通缩担忧缓解了？</div><div class="bar"><i style="--w:61%"></i></div><div class="sub"><span class="trend up">▲</span><span class="hot">57.1万</span></div></div></div>
+            <div class="rk"><span class="no">5</span><div class="mid"><div class="tt">多地优化地产限购政策</div><div class="bar"><i style="--w:52%"></i></div><div class="sub"><span class="hot">48.9万</span></div></div></div>
+            <div class="rk"><span class="no">6</span><div class="mid"><div class="tt">前 5 月出口同比增速回正</div><div class="bar"><i style="--w:44%"></i></div><div class="sub"><span class="hot">40.3万</span></div></div></div>
+
+            <div class="blk"><span class="t">要闻解读</span><span class="m">看完热度看门道</span></div>
+            <div class="card">
+              <div class="meta"><span class="chip">货币</span><span>·</span><span>1 小时前</span><span class="acts"><span>收藏</span><span class="lock">深度 🔒</span></span></div>
+              <h3>降准落地：流动性宽松，利好谁？</h3>
+              <p>市场预期之内但时点偏早，资金面与权益市场或迎短期提振。</p>
+              <div class="why">为何重要：利好成长板块与利率敏感行业，关注资金面后续。</div>
+            </div>
+            <div class="card">
+              <div class="meta"><span class="chip">财政</span><span>·</span><span>4 小时前</span></div>
+              <h3>国常会部署提振消费一揽子举措</h3>
+              <p>涉及以旧换新、服务消费、县域市场等多个方向。</p>
+            </div>
+
+            <div class="more-hd">更多 · 你可能也关注</div>
+            <div class="reco" onclick="openEvent('多地优化地产限购政策','宏观','3 源')"><span class="rt">多地优化地产限购政策</span><span class="rm">48万热度</span></div>
+            <div class="reco" onclick="openEvent('前 5 月出口同比增速回正','宏观','3 源')"><span class="rt">前 5 月出口同比增速回正</span><span class="rm">40万热度</span></div>
+            <div class="loadmore" onclick="this.textContent='已加载更多内容 ✓'">加载更多 ∨</div>
+          </div>
+        </div>
+        <div class="tabbar"><div class="t"><div class="ic"></div>简报</div><div class="t on"><div class="ic"></div>频道</div><div class="t"><div class="ic c"></div>报告</div><div class="t"><div class="ic"></div>圈子</div><div class="t"><div class="ic c"></div>我的</div></div>
+      </div>
+    </div>
+
+    <!-- 3. 事件详情 -->
+    <div class="screen-wrap">
+      <div class="screen-title">③ 事件详情 · 付费墙</div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span></span></div>
+        <div class="navbar"><span class="back">‹</span><span class="nt">AI · 深度解读</span></div>
+        <div class="scroll">
+          <div class="pad">
+            <div class="article">
+              <span class="chip">AI</span>
+              <h1>成本暴降 60%：大模型价格战，应用层将如何重构？</h1>
+              <div class="by"><span>热读编辑部</span><span>·</span><span>5 源交叉</span><span>·</span><span>6 月 8 日</span></div>
+              <div class="lede">推理成本一年内下降近一个数量级，正把 AI 应用从"能不能做"推向"值不值得做"。这对创业者意味着一次彻底的洗牌。</div>
+              <div class="body">
+                <p>头部厂商最新一代模型把推理成本一次性<span class="key">压低 60%</span>，上下文窗口扩展至百万 token。表面看是技术升级，实质是一场针对应用层的<span class="key">定价权重构</span>。</p>
+                <div class="h2">谁会先被冲击</div>
+                <p>当模型能力趋同、调用价格逼近成本线，靠"接口套壳"建立的产品将最先失去溢价空间。我们梳理出三类受影响最深的方向：</p>
+                <ul class="pts">
+                  <li>纯套壳类工具：毛利被持续压缩，难以维持订阅价</li>
+                  <li>通用问答助手：与大厂自带入口正面竞争，获客成本陡增</li>
+                  <li>低壁垒内容生成：供给爆炸，价格快速向零靠拢</li>
+                </ul>
+                <div class="quote">"模型越便宜，护城河就越不在模型本身——而在数据、场景和分发。"</div>
+                <p>对创业者而言，真正的机会窗口正在从"做一个更好的模型壳"转向<span class="key">沉淀私有数据与垂直工作流</span>。这部分我们在完整版里给出了具体的判断框架与标的清单——</p>
+              </div>
+            </div>
+          </div>
+          <div class="paywall">
+            <div class="box">
+              <h4>解锁完整深度解读</h4>
+              <p>含独家数据图表 · 影响推演 · 标的梳理</p>
+              <span class="btn">开通会员 ¥30/月</span>
+              <span class="btn ghost">年卡 ¥298 更划算 ›</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 报告 -->
+    <div class="screen-wrap">
+      <div class="screen-title">④ 报告 · 数据服务</div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>报告</span></div>
+        <div class="scroll">
+          <div class="pad" style="padding-top:10px">
+            <div class="topbar"><span class="logo" style="font-size:20px">研究 · 数据</span></div>
+            <div class="blk"><span class="t">精选报告</span><span class="m">会员折扣</span></div>
+            <div class="report"><div class="thumb"></div><div><h4>2026 AI 应用层投资地图</h4><div class="d">62 页 · 含 200+ 标的数据库</div><div class="price">¥299 <s>会员 8 折</s></div></div></div>
+            <div class="report"><div class="thumb"></div><div><h4>一级市场融资月报 · 5 月</h4><div class="d">38 页 · 赛道热度与估值追踪</div><div class="price">¥99 <s>会员免费</s></div></div></div>
+            <div class="report"><div class="thumb"></div><div><h4>宏观季度展望：利率与流动性</h4><div class="d">45 页 · 含数据看板访问权</div><div class="price">¥199 <s>会员 8 折</s></div></div></div>
+          </div>
+        </div>
+        <div class="tabbar"><div class="t"><div class="ic"></div>简报</div><div class="t"><div class="ic"></div>频道</div><div class="t on"><div class="ic c"></div>报告</div><div class="t"><div class="ic"></div>圈子</div><div class="t"><div class="ic c"></div>我的</div></div>
+      </div>
+    </div>
+
+    <!-- 5. 圈子 -->
+    <div class="screen-wrap">
+      <div class="screen-title">⑤ 圈子 · 轻社区与活动</div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>圈子</span></div>
+        <div class="scroll">
+          <div class="pad" style="padding-top:10px">
+            <div class="event">
+              <div class="k">🔒 私董会 · 限 30 人</div>
+              <h4>AI 应用商业化闭门夜话（上海）</h4>
+              <div class="d">6 月 20 日 19:30 · 专业版会员优先报名</div>
+            </div>
+            <div class="blk"><span class="t">话题讨论 <span class="fire">🔥</span></span><span class="m">今日热议</span></div>
+            <div class="post">
+              <div class="u"><div class="a"></div><div class="n">老王投资笔记</div><span class="tag">投资人</span></div>
+              <p>降准之后，大家更看好成长还是红利？说说理由。</p>
+              <div class="foot"><span>♡ 86</span><span>评论 42</span><span>转发 7</span></div>
+            </div>
+            <div class="post">
+              <div class="u"><div class="a"></div><div class="n">Mia 做产品</div><span class="tag">产品经理</span></div>
+              <p>多模态降价后，第一个被颠覆的会是哪类工具产品？</p>
+              <div class="foot"><span>♡ 120</span><span>评论 65</span><span>转发 12</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar"><div class="t"><div class="ic"></div>简报</div><div class="t"><div class="ic"></div>频道</div><div class="t"><div class="ic c"></div>报告</div><div class="t on"><div class="ic"></div>圈子</div><div class="t"><div class="ic c"></div>我的</div></div>
+      </div>
+    </div>
+
+    <!-- 6. 我的 -->
+    <div class="screen-wrap">
+      <div class="screen-title">⑥ 我的 · 会员中心</div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span>我的</span></div>
+        <div class="scroll">
+          <div class="profile">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div class="avatar">读</div>
+              <div>
+                <div style="font-size:17px;font-weight:800">读者 · 浩然</div>
+                <div style="font-size:12px;color:var(--ink-3);margin-top:2px">免费用户 · 已读 128 条</div>
+              </div>
+            </div>
+            <div class="vipcard">
+              <div class="t">热读会员</div>
+              <div class="price">¥298 <small>/年（约 ¥0.8/天）</small></div>
+              <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:6px;position:relative;z-index:2">深度解读 · 数据看板 · 历史检索 · 报告 8 折</div>
+              <div class="go">立即开通</div>
+            </div>
+            <div class="menu">
+              <div class="m">我的收藏<span class="r">36 ›</span></div>
+              <div class="m">阅读历史<span class="r">›</span></div>
+              <div class="m">我购买的报告<span class="r">2 ›</span></div>
+              <div class="m">推送设置<span class="r">早 8:00 ›</span></div>
+              <div class="m">关于热读<span class="r">›</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar"><div class="t"><div class="ic"></div>简报</div><div class="t"><div class="ic"></div>频道</div><div class="t"><div class="ic c"></div>报告</div><div class="t"><div class="ic"></div>圈子</div><div class="t on"><div class="ic c"></div>我的</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 事件详情弹层 -->
+  <div class="modal" id="modal" onclick="if(event.target===this)closeEvent()">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span></span></div>
+      <div class="navbar"><span class="back" onclick="closeEvent()">‹</span><span class="nt">热点详情</span></div>
+      <div class="scroll">
+        <div class="pad">
+          <div class="article">
+            <span class="chip" id="mChip">热点</span>
+            <h1 id="mTitle">事件标题</h1>
+            <div class="by"><span>热读编辑部</span><span>·</span><span id="mSrc">5 源交叉</span><span>·</span><span>6 月 8 日</span></div>
+            <div class="lede" id="mLede">AI 聚合多源报道，为你提炼这件事的来龙去脉与影响。</div>
+            <div class="body" id="mBody">
+              <p>热读基于<span class="key">多源交叉验证</span>生成结构化摘要，并标注信息来源与时效，帮你在 1 分钟内掌握事件全貌。</p>
+              <div class="h2">为何值得关注</div>
+              <p>对从业者而言，关注点往往不在事件本身，而在于它如何改变所在赛道的<span class="key">竞争格局与节奏</span>。我们从三个维度拆解：</p>
+              <ul class="pts">
+                <li>直接影响：哪些公司、哪些环节会被波及</li>
+                <li>传导路径：事件如何沿产业链与资金面扩散</li>
+                <li>可执行的判断：作为决策者下一步该关注什么</li>
+              </ul>
+              <div class="quote">"看懂一件事，不是知道它发生了，而是知道它接下来会引发什么。"</div>
+              <p>完整的「影响推演」与「相关标的 / 数据」属于深度解读内容——</p>
+            </div>
+          </div>
+        </div>
+        <div class="paywall" id="mPaywall">
+          <div class="box">
+            <h4 id="mPaywallTitle">解锁完整深度解读</h4>
+            <p id="mPaywallDesc">含独家数据图表 · 影响推演 · 标的梳理</p>
+            <span class="btn">开通会员 ¥30/月</span>
+            <span class="btn ghost">年卡 ¥298 更划算 ›</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ====== 接入 Mock 后端 ======
+    var API='http://localhost:8000/v1';
+    // 联调身份：'member-token' 可解锁付费墙；留空=游客（免费态）
+    var TOKEN='';
+    var MODULE_CN={tech:'科技',finance:'金融',ai:'AI',macro:'宏观'};
+
+    function api(path){
+      var h={};
+      if(TOKEN) h['Authorization']='Bearer '+TOKEN;
+      return fetch(API+path,{headers:h}).then(function(r){
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        return r.json();
+      }).then(function(j){
+        if(j.code!==0) throw new Error(j.message||'err');
+        return j.data;
+      });
+    }
+    function wan(n){ // 热度数字 → 万
+      if(!n) return '';
+      return (n/10000).toFixed(1)+'万';
+    }
+    function trendHTML(t){
+      if(t==='up') return '<span class="trend up">▲ 飙升</span>';
+      if(t==='new') return '<span class="trend new">新</span>';
+      return '';
+    }
+    function rkHTML(it){
+      var cls=it.rank<=3?('rk t'+it.rank):'rk';
+      return '<div class="'+cls+'" data-eid="'+it.event_id+'"><span class="no">'+it.rank+'</span><div class="mid">'+
+        '<div class="tt">'+it.title+'</div>'+
+        '<div class="bar"><i style="--w:'+Math.max(20,Math.min(95,Math.round(it.hotness/12000)))+'%"></i></div>'+
+        '<div class="sub">'+trendHTML(it.trend)+'<span class="tag">'+(MODULE_CN[it.module]||'')+'</span><span class="hot">'+wan(it.hotness)+'</span></div>'+
+      '</div></div>';
+    }
+    function bindRk(scope){
+      scope.querySelectorAll('.rk[data-eid]').forEach(function(el){
+        el.addEventListener('click',function(){
+          openEvent(null,null,null,el.getAttribute('data-eid'));
+        });
+      });
+    }
+
+    // ---- 首页 ----
+    function loadHome(){
+      api('/home/briefing').then(function(d){
+        if(d.date) document.getElementById('homeDate').textContent=
+          d.date+' · 今日 '+d.total_count+' 条热点已为你筛选';
+        // 行情条
+        if(d.market_ticker&&d.market_ticker.length){
+          document.getElementById('homeTicker').innerHTML=d.market_ticker.map(function(m){
+            var dir=m.direction==='up'?'up':'down';
+            var arrow=m.direction==='up'?'▲':'▼';
+            return '<div class="tk"><div class="k">'+m.name+'</div><div class="v">'+m.value+
+              '</div><div class="c '+dir+'">'+(m.change_pct>0?'+':'')+m.change_pct+'% '+arrow+'</div></div>';
+          }).join('');
+        }
+        // 头条
+        if(d.top_headline){
+          var h=d.top_headline, hero=document.getElementById('homeHero');
+          hero.querySelector('h2').textContent=h.title;
+          if(h.summary&&h.summary[0]) hero.querySelector('.sum').textContent=h.summary[0];
+          hero.querySelector('.foot').innerHTML='<span class="big"><em>'+wan(h.importance*10000)+
+            '</em> 热度</span><span>·</span><span>'+(h.source_count||1)+' 源交叉</span>';
+          hero.setAttribute('data-eid',h.event_id);
+          hero.onclick=function(){openEvent(null,null,null,h.event_id);};
+        }
+        // 热榜
+        if(d.hot_list&&d.hot_list.length){
+          var box=document.getElementById('homeHotList');
+          box.innerHTML=d.hot_list.map(rkHTML).join('');
+          bindRk(box);
+        }
+        flash('首页已接入 Mock');
+      }).catch(function(e){ console.warn('首页加载失败，保留静态内容',e); });
+    }
+
+    // ---- 频道 ----
+    function loadChannel(phone){
+      var module=phone.getAttribute('data-module');
+      api('/channels/'+module).then(function(d){
+        // 头条
+        if(d.top_headline){
+          var h=d.top_headline, hero=phone.querySelector('.hero');
+          if(hero){
+            hero.querySelector('h2').textContent=h.title;
+            if(h.summary&&h.summary[0]) hero.querySelector('.sum').textContent=h.summary[0];
+            var foot=hero.querySelector('.foot');
+            if(foot) foot.innerHTML='<span class="big"><em>'+wan(h.importance*10000)+
+              '</em> 热度</span><span>·</span><span>'+(h.source_count||1)+' 源</span>';
+            hero.setAttribute('data-eid',h.event_id);
+            hero.onclick=function(){openEvent(null,null,null,h.event_id);};
+          }
+        }
+        // 热榜：定位"热榜"区块，替换其后的 rk
+        if(d.hot_list&&d.hot_list.length){
+          var hotBlk=null;
+          phone.querySelectorAll('.blk').forEach(function(b){ if(b.textContent.indexOf('热榜')>=0) hotBlk=b; });
+          if(hotBlk){
+            var n=hotBlk.nextElementSibling;
+            while(n&&!n.classList.contains('blk')){ var nx=n.nextElementSibling; if(n.classList.contains('rk')) n.remove(); n=nx; }
+            hotBlk.insertAdjacentHTML('afterend', d.hot_list.map(rkHTML).join(''));
+            bindRk(phone);
+          }
+        }
+        // 要闻卡片
+        if(d.feed&&d.feed.length){
+          var cards=phone.querySelectorAll('.card');
+          cards.forEach(function(card,i){
+            var f=d.feed[i]; if(!f) return;
+            card.setAttribute('data-eid',f.event_id);
+            var h3=card.querySelector('h3'); if(h3) h3.textContent=f.title;
+            var p=card.querySelector('p'); if(p&&f.summary&&f.summary[0]) p.textContent=f.summary[0];
+            var why=card.querySelector('.why');
+            if(why&&f.why_matters) why.textContent='为何重要：'+f.why_matters;
+          });
+        }
+      }).catch(function(e){ console.warn('频道'+module+'加载失败，保留静态内容',e); });
+    }
+
+    // ====== 详情弹层 ======
+    var modal=document.getElementById('modal');
+    function setStatic(title,chip,src){
+      document.getElementById('mTitle').textContent=title||'热点详情';
+      document.getElementById('mChip').textContent=chip||'热点';
+      document.getElementById('mSrc').textContent=src||(Math.floor(Math.random()*4)+3)+' 源交叉';
+      document.getElementById('mLede').textContent='AI 聚合多源报道，为你提炼「'+(title||'该事件')+'」的来龙去脉与影响。';
+    }
+    function openEvent(title,chip,src,eventId){
+      if(eventId){
+        // 真·调用后端详情接口
+        api('/events/'+eventId).then(function(d){
+          document.getElementById('mTitle').textContent=d.title;
+          document.getElementById('mChip').textContent=MODULE_CN[d.module]||'热点';
+          document.getElementById('mSrc').textContent=(d.source_count||1)+' 源交叉';
+          document.getElementById('mLede').textContent=(d.summary&&d.summary[0])||d.title;
+          // 正文：事实要点 + 为何重要
+          var body='';
+          if(d.summary&&d.summary.length){
+            body+='<div class="h2">事件梳理</div><ul class="pts">'+
+              d.summary.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ul>';
+          }
+          if(d.why_matters){ body+='<div class="h2">为何值得关注</div><p>'+d.why_matters+'</p>'; }
+          if(d.sources&&d.sources.length){
+            body+='<p style="font-size:11.5px;color:var(--ink-3);margin-top:14px">来源：'+
+              d.sources.map(function(s){return s.name+'('+s.level+')';}).join('、')+'</p>';
+          }
+          if(d.disclaimer){ body+='<p style="font-size:11px;color:var(--ink-3);margin-top:8px">'+d.disclaimer+'</p>'; }
+          document.getElementById('mBody').innerHTML=body;
+          // 付费墙：按会员态显隐
+          var pw=document.getElementById('mPaywall');
+          var dc=d.deep_content||{};
+          if(dc.is_locked===false){
+            pw.style.display='none';
+            document.getElementById('mBody').innerHTML+=
+              '<div class="h2">深度解读</div><p>'+(dc.content||'')+'</p>';
+          }else{
+            pw.style.display='';
+            if(dc.preview) document.getElementById('mBody').innerHTML+=
+              '<div class="h2">深度解读</div><p>'+dc.preview+'</p>';
+            if(dc.paywall){
+              document.getElementById('mPaywallTitle').textContent=dc.paywall.cta||'解锁完整深度解读';
+            }
+          }
+          modal.classList.add('show');
+        }).catch(function(e){
+          console.warn('详情接口失败，回退静态',e);
+          setStatic(title,chip,src); modal.classList.add('show');
+        });
+        return;
+      }
+      setStatic(title,chip,src);
+      modal.classList.add('show');
+    }
+    function closeEvent(){modal.classList.remove('show');}
+
+    // ====== 静态兜底绑定（API 失败时仍可点击）======
+    document.querySelectorAll('.rk:not([data-eid])').forEach(function(el){
+      el.addEventListener('click',function(){
+        var t=el.querySelector('.tt');
+        var on=el.closest('.phone').querySelector('.segs .s.on');
+        var tag=el.querySelector('.tag');
+        openEvent(t?t.textContent:'',(tag?tag.textContent:(on?on.textContent:'热点')));
+      });
+    });
+    document.querySelectorAll('.hero:not([data-eid])').forEach(function(el){
+      el.addEventListener('click',function(){
+        if(el.getAttribute('data-eid'))return;
+        var h=el.querySelector('h2');
+        var on=el.closest('.phone').querySelector('.segs .s.on');
+        openEvent(h?h.textContent:'',on?on.textContent:'头条');
+      });
+    });
+    document.querySelectorAll('.card').forEach(function(el){
+      el.addEventListener('click',function(e){
+        if(e.target.closest('.acts'))return;
+        var eid=el.getAttribute('data-eid');
+        if(eid){ openEvent(null,null,null,eid); return; }
+        var h=el.querySelector('h3'); var chip=el.querySelector('.chip');
+        openEvent(h?h.textContent:'',chip?chip.textContent:'热点');
+      });
+    });
+
+    // ====== 接入状态提示 ======
+    function flash(msg){
+      var d=document.createElement('div');
+      d.textContent='● '+msg;
+      d.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#f3b13b;color:#0d0f12;font-size:12px;font-weight:700;padding:7px 16px;border-radius:999px;z-index:200;box-shadow:0 6px 20px rgba(0,0,0,.4);opacity:0;transition:opacity .3s';
+      document.body.appendChild(d);
+      requestAnimationFrame(function(){d.style.opacity='1';});
+      setTimeout(function(){d.style.opacity='0';setTimeout(function(){d.remove();},400);},2200);
+    }
+
+    // ====== 启动：拉取数据 ======
+    loadHome();
+    document.querySelectorAll('.phone[data-module]').forEach(loadChannel);
+  </script>
+</body>
+</html>

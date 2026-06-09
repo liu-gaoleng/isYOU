@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>热读 · 运营后台 CMS</title>
+<style>
+  :root{
+    --ink:#eceef0; --ink-2:#9aa0a6; --ink-3:#6b7177;
+    --line:#23262b; --bg:#0d0f12; --card:#16191e; --card-2:#1c2026;
+    --accent:#f3b13b; --accent-2:#ffce6b; --accent-soft:rgba(243,177,59,.13);
+    --up:#ff5b4d; --down:#27c281;
+    --font:-apple-system,"PingFang SC","Helvetica Neue","SF Pro Text",Arial,sans-serif;
+    --mono:"SF Mono","Roboto Mono","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+  body{font-family:var(--font);background:var(--bg);color:var(--ink);line-height:1.55;display:flex;min-height:100vh;}
+
+  /* —— 侧边栏 —— */
+  .side{width:208px;flex-shrink:0;background:#0a0c0f;border-right:1px solid var(--line);padding:18px 0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
+  .side .brand{padding:0 20px 18px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);margin-bottom:12px;}
+  .side .brand .logo{font-size:18px;font-weight:800;color:var(--accent);letter-spacing:1px;}
+  .side .brand .cms{font-size:10px;color:var(--ink-3);border:1px solid var(--line);padding:1px 6px;border-radius:5px;letter-spacing:1px;}
+  .nav-i{display:flex;align-items:center;gap:10px;padding:11px 20px;font-size:13px;color:var(--ink-2);cursor:pointer;border-left:2px solid transparent;transition:.12s;}
+  .nav-i:hover{color:var(--ink);background:var(--card);}
+  .nav-i.on{color:var(--accent);border-left-color:var(--accent);background:var(--accent-soft);font-weight:600;}
+  .nav-i .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.55;}
+  .side .foot{margin-top:auto;padding:14px 20px 0;border-top:1px solid var(--line);font-size:11px;color:var(--ink-3);}
+  .side .foot b{color:var(--ink-2);font-weight:600;}
+
+  /* —— 主区 —— */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .topbar{height:54px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;background:rgba(13,15,18,.92);backdrop-filter:blur(8px);z-index:20;}
+  .topbar .ttl{font-size:15px;font-weight:700;}
+  .topbar .ttl .live{font-size:10px;color:var(--up);margin-left:10px;font-weight:600;}
+  .topbar .ttl .live::before{content:"●";margin-right:4px;animation:bl 1.4s infinite;}
+  @keyframes bl{50%{opacity:.3;}}
+  .topbar .right{display:flex;align-items:center;gap:14px;}
+  .topbar .role{font-size:12px;color:var(--ink-2);}
+  .topbar .role b{color:var(--accent);font-weight:600;}
+  .topbar .ava{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--up));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#0a0c0f;}
+  .wrap{padding:22px 24px;overflow-y:auto;}
+  .page{display:none;}
+  .page.on{display:block;}
+
+  /* —— 概览卡 —— */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:14px;}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 16px 14px;}
+  .kpi .k{font-size:11px;color:var(--ink-3);letter-spacing:1px;}
+  .kpi .v{font-size:26px;font-weight:800;margin-top:7px;font-family:var(--mono);letter-spacing:-.5px;}
+  .kpi .v.amber{color:var(--accent);} .kpi .v.up{color:var(--up);} .kpi .v.down{color:var(--down);}
+  .kpi .d{font-size:11px;color:var(--ink-3);margin-top:5px;}
+  .sec-hd{font-size:11px;color:var(--accent);font-weight:700;letter-spacing:2px;margin:26px 0 12px;}
+
+  /* —— 管线流程图 —— */
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 16px;}
+  .flow .st{flex:1;min-width:96px;text-align:center;position:relative;padding:0 6px;}
+  .flow .st .n{font-size:20px;font-weight:800;font-family:var(--mono);color:var(--accent);}
+  .flow .st .l{font-size:11px;color:var(--ink-2);margin-top:4px;}
+  .flow .st::after{content:"›";position:absolute;right:-4px;top:8px;color:var(--ink-3);font-size:16px;}
+  .flow .st:last-child::after{display:none;}
+
+  /* —— 运营数据看板 —— */
+  .kpi .wow{font-size:11px;font-weight:600;margin-left:7px;}
+  .kpi .wow.up{color:var(--down);} .kpi .wow.dn{color:var(--up);}
+  .biz-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-top:14px;}
+  @media(max-width:880px){.biz-grid{grid-template-columns:1fr;}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;}
+  .panel .ph{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--ink-2);font-weight:600;margin-bottom:14px;}
+  .panel .ph .lgd{font-size:10.5px;color:var(--ink-3);font-weight:500;display:flex;align-items:center;gap:10px;}
+  .panel .ph .lgd i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:3px;vertical-align:-1px;}
+  .lgd i.d-dau{background:var(--accent);} .lgd i.d-new{background:#6cb8ff;} .lgd i.d-pay{background:var(--up);}
+  /* 趋势折柱图 */
+  .chart{display:flex;align-items:flex-end;gap:10px;height:170px;padding-top:8px;}
+  .chart .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end;}
+  .chart .bars{display:flex;align-items:flex-end;gap:2px;height:100%;width:100%;justify-content:center;}
+  .chart .bar{width:30%;border-radius:3px 3px 0 0;transition:height .4s;}
+  .chart .bar.dau{background:linear-gradient(180deg,var(--accent),rgba(243,177,59,.35));}
+  .chart .bar.nw{background:rgba(108,184,255,.55);}
+  .chart .bar.py{background:rgba(255,91,77,.7);}
+  .chart .xl{font-size:10px;color:var(--ink-3);font-family:var(--mono);}
+  /* 模块占比条 */
+  .mrow{margin-bottom:13px;}
+  .mrow:last-child{margin-bottom:0;}
+  .mrow .mh{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;}
+  .mrow .mh .pc{font-family:var(--mono);font-weight:700;color:var(--ink);}
+  .mrow .track{height:8px;background:var(--card-2);border-radius:999px;overflow:hidden;}
+  .mrow .fill{height:100%;border-radius:999px;}
+  .fill.tech{background:#6cb8ff;} .fill.ai{background:var(--accent);}
+  .fill.finance{background:var(--down);} .fill.macro{background:#c89bff;}
+  /* 漏斗 */
+  .fnl{display:flex;align-items:center;gap:12px;margin-bottom:9px;}
+  .fnl:last-child{margin-bottom:0;}
+  .fnl .lab{width:88px;font-size:12px;color:var(--ink-2);flex-shrink:0;}
+  .fnl .barwrap{flex:1;background:var(--card-2);border-radius:7px;overflow:hidden;height:30px;display:flex;align-items:center;}
+  .fnl .fbar{height:100%;background:linear-gradient(90deg,var(--accent),rgba(243,177,59,.35));display:flex;align-items:center;padding-left:10px;font-size:12px;font-weight:700;color:#1a1306;font-family:var(--mono);min-width:48px;transition:width .5s;}
+  .fnl .rate{width:56px;text-align:right;font-size:11px;color:var(--ink-3);font-family:var(--mono);flex-shrink:0;}
+
+  /* —— 工具条 / 过滤 —— */
+  .bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:9px;overflow:hidden;}
+  .seg button{background:none;border:none;color:var(--ink-2);font-size:12px;padding:7px 14px;cursor:pointer;font-family:inherit;border-right:1px solid var(--line);}
+  .seg button:last-child{border-right:none;}
+  .seg button.on{background:var(--accent-soft);color:var(--accent);font-weight:600;}
+  .bar .sp{flex:1;}
+  .bar .cnt{font-size:12px;color:var(--ink-3);}
+
+  /* —— 表格 —— */
+  .tbl{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  .tbl th{text-align:left;font-size:11px;color:var(--ink-3);font-weight:600;letter-spacing:1px;padding:11px 14px;border-bottom:1px solid var(--line);background:#101317;}
+  .tbl td{font-size:12.5px;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  .tbl tr:last-child td{border-bottom:none;}
+  .tbl tr.row{cursor:pointer;transition:.1s;}
+  .tbl tr.row:hover{background:var(--card-2);}
+  .tbl tr.row.sel{background:var(--accent-soft);}
+  .tbl td.ti{max-width:1px;}
+  .tbl td.ti .tx{font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mod{font-size:10px;padding:2px 7px;border-radius:5px;font-weight:600;white-space:nowrap;}
+  .mod.tech{color:#6cb8ff;background:rgba(108,184,255,.12);}
+  .mod.finance{color:var(--down);background:rgba(39,194,129,.12);}
+  .mod.ai{color:var(--accent);background:var(--accent-soft);}
+  .mod.macro{color:#c89bff;background:rgba(200,155,255,.12);}
+  .st-tag{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600;white-space:nowrap;}
+  .st-tag.reviewing{color:var(--accent);background:var(--accent-soft);}
+  .st-tag.published{color:var(--down);background:rgba(39,194,129,.12);}
+  .st-tag.rejected{color:var(--up);background:rgba(255,91,77,.12);}
+  .imp{font-family:var(--mono);font-weight:700;}
+  .imp.h{color:var(--up);} .imp.m{color:var(--accent);} .imp.l{color:var(--ink-2);}
+
+  /* —— 信源 —— */
+  .src{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 16px;margin-bottom:8px;}
+  .src .lv{font-family:var(--mono);font-weight:800;font-size:14px;width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .src .lv.S{color:var(--up);background:rgba(255,91,77,.12);}
+  .src .lv.A{color:var(--accent);background:var(--accent-soft);}
+  .src .lv.B{color:var(--ink-2);background:var(--card-2);}
+  .src .nm{flex:1;font-size:13px;font-weight:600;}
+  .src .w{font-size:11px;color:var(--ink-3);font-family:var(--mono);margin-right:10px;}
+  .sw{width:38px;height:21px;border-radius:999px;background:var(--card-2);border:1px solid var(--line);position:relative;flex-shrink:0;}
+  .sw.on{background:var(--accent);border-color:var(--accent);}
+  .sw::after{content:"";position:absolute;width:15px;height:15px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.15s;}
+  .sw.on::after{left:19px;}
+  .src .w{cursor:pointer;}
+  .src .w:hover{color:var(--accent);}
+  .src .sact{display:flex;gap:6px;margin-left:12px;flex-shrink:0;}
+  .src .sact button{font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid var(--line);background:var(--card-2);color:var(--ink-2);cursor:pointer;font-family:inherit;transition:.12s;}
+  .src .sact button:hover{color:var(--ink);border-color:var(--ink-3);}
+  .src .sact button.del:hover{color:var(--up);border-color:rgba(255,91,77,.4);}
+  .src.off{opacity:.5;}
+
+  /* —— 审核抽屉 —— */
+  .drawer{position:fixed;top:0;right:0;width:520px;max-width:94vw;height:100vh;background:var(--bg);border-left:1px solid var(--line);box-shadow:-20px 0 50px rgba(0,0,0,.5);transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:60;display:flex;flex-direction:column;}
+  .drawer.on{transform:translateX(0);}
+  .dr-hd{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+  .dr-hd .x{font-size:22px;color:var(--ink-3);cursor:pointer;line-height:1;background:none;border:none;}
+  .dr-body{padding:20px;overflow-y:auto;flex:1;}
+  .dr-body .dt{font-size:18px;font-weight:800;line-height:1.4;}
+  .dr-meta{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;}
+  .val{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin:16px 0;}
+  .val .vh{font-size:11px;color:var(--accent);letter-spacing:1px;font-weight:700;margin-bottom:9px;}
+  .val .vrow{display:flex;align-items:center;justify-content:space-between;padding:5px 0;font-size:12.5px;}
+  .val .vrow .ok{color:var(--down);font-weight:600;}
+  .val .vrow .no{color:var(--up);font-weight:600;}
+  .val .overall{margin-top:9px;padding-top:9px;border-top:1px solid var(--line);font-size:12px;font-weight:700;}
+  .src-list{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0;}
+  .src-list .s{font-size:10.5px;color:var(--ink-2);background:var(--card);border:1px solid var(--line);padding:3px 9px;border-radius:6px;}
+  .dr-art{font-size:13px;color:#c8ccd1;line-height:1.7;margin-top:16px;white-space:pre-wrap;}
+  .dr-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px;flex-shrink:0;}
+  .btn{flex:1;padding:11px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;transition:.12s;}
+  .btn:hover{border-color:var(--ink-3);}
+  .btn.ok{background:var(--down);border-color:var(--down);color:#04150d;}
+  .btn.no{background:none;color:var(--up);border-color:rgba(255,91,77,.4);}
+  .btn.pub{background:var(--accent);border-color:var(--accent);color:#1a1306;}
+  /* 抽屉顶部工具按钮 */
+  .tbtn{background:var(--card);border:1px solid var(--line);color:var(--ink-2);font-size:11px;font-weight:600;padding:5px 9px;border-radius:7px;cursor:pointer;font-family:inherit;transition:.12s;}
+  .tbtn:hover{color:var(--ink);border-color:var(--ink-3);}
+  .tbtn.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);}
+  /* 在线编辑表单 */
+  .efield{margin-bottom:14px;}
+  .efield label{display:block;font-size:11px;color:var(--accent);letter-spacing:1px;font-weight:700;margin-bottom:6px;}
+  .efield input,.efield textarea{width:100%;background:var(--card);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-size:13px;font-family:inherit;padding:9px 11px;line-height:1.6;resize:vertical;}
+  .efield input:focus,.efield textarea:focus{outline:none;border-color:var(--accent);}
+  .efield .hint{font-size:10.5px;color:var(--ink-3);margin-top:4px;}
+  /* 合并候选 */
+  .mpick{margin-top:14px;}
+  .mpick .mp-row{display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--card);border:1px solid var(--line);border-radius:8px;margin-bottom:7px;cursor:pointer;}
+  .mpick .mp-row.sel{border-color:var(--accent);background:var(--accent-soft);}
+  .mpick .mp-row .cb{width:16px;height:16px;border-radius:4px;border:1px solid var(--ink-3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#1a1306;}
+  .mpick .mp-row.sel .cb{background:var(--accent);border-color:var(--accent);}
+  .mpick .mp-row .tx{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  /* 列表内标记 */
+  .flag{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:5px;vertical-align:1px;}
+  .flag.pin{color:var(--accent);background:var(--accent-soft);}
+  .flag.push{color:#6cb8ff;background:rgba(108,184,255,.12);}
+  /* —— 推送运营 —— */
+  .seg.sm button{padding:6px 11px;}
+  .dg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;}
+  .dg-field label{display:block;font-size:11px;color:var(--ink-3);letter-spacing:1px;font-weight:600;margin-bottom:8px;}
+  .dg-input{background:var(--card-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-size:14px;font-family:var(--mono);padding:7px 11px;width:120px;}
+  .dg-input:focus{outline:none;border-color:var(--accent);}
+  .sw.lg{width:46px;height:25px;}
+  .sw.lg::after{width:19px;height:19px;}
+  .sw.lg.on::after{left:23px;}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;}
+  .chip{font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card-2);color:var(--ink-2);cursor:pointer;transition:.12s;}
+  .chip.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);font-weight:600;}
+  .dg-foot{display:flex;align-items:center;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line);}
+  .dg-preview{font-size:12px;color:var(--ink-3);}
+  .dg-preview b{color:var(--ink-2);font-weight:600;}
+  .ptype{font-size:10px;padding:2px 8px;border-radius:5px;font-weight:700;white-space:nowrap;}
+  .ptype.daily{color:var(--accent);background:var(--accent-soft);}
+  .ptype.manual{color:#6cb8ff;background:rgba(108,184,255,.12);}
+  .orate{display:flex;align-items:center;gap:8px;}
+  .orate .ot{width:46px;height:6px;background:var(--card-2);border-radius:999px;overflow:hidden;}
+  .orate .of{height:100%;background:linear-gradient(90deg,var(--accent),var(--up));border-radius:999px;}
+  .orate .ov{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--ink);}
+  .pmono{font-family:var(--mono);color:var(--ink-2);}
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:.2s;z-index:55;}
+  .scrim.on{opacity:1;pointer-events:auto;}
+
+  /* —— toast —— */
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--accent);color:#1a1306;font-size:13px;font-weight:700;padding:10px 20px;border-radius:999px;opacity:0;transition:.25s;z-index:90;pointer-events:none;}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+  .empty{text-align:center;color:var(--ink-3);font-size:13px;padding:40px;}
+</style>
+</head>
+<body>
+  <!-- 侧边栏 -->
+  <aside class="side">
+    <div class="brand"><span class="logo">热读</span><span class="cms">CMS</span></div>
+    <div class="nav-i on" data-page="overview"><span class="dot"></span>运营概览</div>
+    <div class="nav-i" data-page="business"><span class="dot"></span>运营数据</div>
+    <div class="nav-i" data-page="review"><span class="dot"></span>内容审核</div>
+    <div class="nav-i" data-page="push"><span class="dot"></span>推送运营</div>
+    <div class="nav-i" data-page="sources"><span class="dot"></span>信源管理</div>
+    <div class="foot">运营后台 · v0.1<br><b>数据源</b> Mock @ :8000</div>
+  </aside>
+
+  <!-- 主区 -->
+  <div class="main">
+    <div class="topbar">
+      <div class="ttl" id="pageTitle">运营概览 <span class="live">实时</span></div>
+      <div class="right">
+        <span class="role">角色 <b>审核员</b></span>
+        <div class="ava">运</div>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <!-- 概览 -->
+      <section class="page on" id="page-overview">
+        <div class="sec-hd">管线核心指标 · 今日</div>
+        <div class="kpis" id="kpis">
+          <div class="kpi"><div class="k">采集量</div><div class="v">—</div></div>
+        </div>
+        <div class="sec-hd">内容管线 · 八阶段</div>
+        <div class="flow">
+          <div class="st"><div class="n" id="f-collect">—</div><div class="l">采集</div></div>
+          <div class="st"><div class="n" id="f-clean">清洗</div><div class="l">去重 <span id="f-dedup">—</span></div></div>
+          <div class="st"><div class="n">分类</div><div class="l" id="f-acc">—</div></div>
+          <div class="st"><div class="n">聚类</div><div class="l">事件</div></div>
+          <div class="st"><div class="n">AI</div><div class="l">摘要解读</div></div>
+          <div class="st"><div class="n" id="f-events">—</div><div class="l">成稿</div></div>
+          <div class="st"><div class="n">质检</div><div class="l">打回 <span id="f-reject">—</span></div></div>
+          <div class="st"><div class="n">发布</div><div class="l">≈<span id="f-lat">—</span>s</div></div>
+        </div>
+        <div class="sec-hd">待办</div>
+        <div class="kpis">
+          <div class="kpi"><div class="k">待审核</div><div class="v amber" id="todo-review">—</div><div class="d">需人工质检后发布</div></div>
+          <div class="kpi"><div class="k">已发布</div><div class="v down" id="todo-pub">—</div><div class="d">客户端可见</div></div>
+          <div class="kpi"><div class="k">已打回</div><div class="v up" id="todo-rej">—</div><div class="d">不进客户端</div></div>
+        </div>
+      </section>
+
+      <!-- 运营数据 -->
+      <section class="page" id="page-business">
+        <div class="sec-hd">核心业务指标 · 今日</div>
+        <div class="kpis" id="bizKpis"><div class="kpi"><div class="k">DAU</div><div class="v">—</div></div></div>
+
+        <div class="biz-grid">
+          <div class="panel">
+            <div class="ph"><span>用户与付费趋势 · 近 7 日</span><span class="lgd"><i class="d-dau"></i>DAU <i class="d-new"></i>新增 <i class="d-pay"></i>付费</span></div>
+            <div class="chart" id="trendChart"></div>
+          </div>
+          <div class="panel">
+            <div class="ph"><span>各模块阅读占比</span></div>
+            <div id="moduleDist"></div>
+          </div>
+        </div>
+
+        <div class="sec-hd">付费转化漏斗</div>
+        <div class="panel"><div id="funnel"></div></div>
+      </section>
+
+      <!-- 内容审核 -->
+      <section class="page" id="page-review">
+        <div class="bar">
+          <div class="seg" id="statusSeg">
+            <button data-st="reviewing" class="on">待审核</button>
+            <button data-st="published">已发布</button>
+            <button data-st="rejected">已打回</button>
+          </div>
+          <div class="sp"></div>
+          <div class="cnt" id="evCount">—</div>
+        </div>
+        <table class="tbl">
+          <thead><tr><th style="width:90px">模块</th><th>标题</th><th style="width:70px">重要度</th><th style="width:88px">状态</th></tr></thead>
+          <tbody id="evRows"><tr><td colspan="4" class="empty">加载中…</td></tr></tbody>
+        </table>
+      </section>
+
+      <!-- 推送运营 -->
+      <section class="page" id="page-push">
+        <div class="sec-hd">推送概览</div>
+        <div class="kpis" id="pushKpis"><div class="kpi"><div class="k">推送次数</div><div class="v">—</div></div></div>
+
+        <div class="sec-hd">定时早报配置</div>
+        <div class="panel" id="digestPanel">
+          <div class="dg-grid">
+            <div class="dg-field">
+              <label>每日推送</label>
+              <div class="sw lg" id="dgEnabled"></div>
+            </div>
+            <div class="dg-field">
+              <label>推送时间</label>
+              <input type="time" id="dgTime" class="dg-input">
+            </div>
+            <div class="dg-field">
+              <label>推送人群</label>
+              <div class="seg sm" id="dgAudience">
+                <button data-a="all">全部用户</button>
+                <button data-a="member">仅会员</button>
+                <button data-a="free">仅免费</button>
+              </div>
+            </div>
+            <div class="dg-field">
+              <label>精选条数 TOP</label>
+              <div class="seg sm" id="dgTopN">
+                <button data-n="3">3</button><button data-n="5">5</button>
+                <button data-n="8">8</button><button data-n="10">10</button>
+              </div>
+            </div>
+          </div>
+          <div class="dg-field" style="margin-top:14px">
+            <label>纳入早报的模块</label>
+            <div class="chips" id="dgModules">
+              <span class="chip" data-m="tech">科技</span><span class="chip" data-m="finance">金融</span>
+              <span class="chip" data-m="ai">AI</span><span class="chip" data-m="macro">宏观</span>
+            </div>
+          </div>
+          <div class="dg-foot">
+            <span class="dg-preview" id="dgPreview"></span>
+            <span class="sp" style="flex:1"></span>
+            <button class="btn" id="dgSave" style="flex:0 0 auto;padding:9px 16px">保存配置</button>
+            <button class="btn pub" id="dgSendNow" style="flex:0 0 auto;padding:9px 16px">立即发送一期</button>
+          </div>
+        </div>
+
+        <div class="sec-hd">推送历史</div>
+        <table class="tbl">
+          <thead><tr><th style="width:64px">类型</th><th>标题</th><th style="width:84px">人群</th><th style="width:84px">触达</th><th style="width:120px">打开率</th><th style="width:140px">推送时间</th></tr></thead>
+          <tbody id="pushRows"><tr><td colspan="6" class="empty">加载中…</td></tr></tbody>
+        </table>
+      </section>
+
+      <!-- 信源管理 -->
+      <section class="page" id="page-sources">
+        <div class="bar"><div class="sec-hd" style="margin:0">信源清单 · 分级 S / A / B</div><div class="sp" style="flex:1"></div><div class="cnt" id="srcCount">—</div><button class="btn pub" id="srcAdd" style="flex:0 0 auto;padding:8px 14px;margin-left:12px">+ 新增信源</button></div>
+        <div class="panel" id="srcForm" style="display:none;margin-bottom:14px">
+          <div class="dg-grid">
+            <div class="dg-field"><label>信源名称</label><input type="text" id="sfName" class="dg-input" style="width:100%;font-family:inherit" placeholder="如：彭博社"></div>
+            <div class="dg-field"><label>网址</label><input type="text" id="sfUrl" class="dg-input" style="width:100%;font-family:inherit" placeholder="https://"></div>
+            <div class="dg-field"><label>分级</label><div class="seg sm" id="sfLevel"><button data-l="S">S</button><button data-l="A">A</button><button data-l="B">B</button></div></div>
+            <div class="dg-field"><label>权重 0–1</label><input type="number" id="sfWeight" class="dg-input" step="0.05" min="0" max="1" style="width:100px"></div>
+          </div>
+          <div class="dg-foot">
+            <span class="dg-preview" id="sfHint">S=1.0 · A=0.7 · B=0.3，可手动微调权重</span>
+            <span class="sp" style="flex:1"></span>
+            <button class="btn" id="sfCancel" style="flex:0 0 auto;padding:9px 16px">取消</button>
+            <button class="btn pub" id="sfSave" style="flex:0 0 auto;padding:9px 16px">保存</button>
+          </div>
+        </div>
+        <div id="srcList"><div class="empty">加载中…</div></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- 审核抽屉 -->
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="drawer">
+    <div class="dr-hd">
+      <span style="font-size:11px;color:var(--accent);letter-spacing:1px;font-weight:700">事件审核</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="tbtn" id="actPin" title="置顶/取消置顶">⤒ 置顶</button>
+        <button class="tbtn" id="actPush" title="推送到客户端">⇪ 推送</button>
+        <button class="tbtn" id="actEdit" title="在线编辑">✎ 编辑</button>
+        <button class="tbtn" id="actMerge" title="合并到本事件">⛙ 合并</button>
+        <button class="x" id="drClose">×</button>
+      </div>
+    </div>
+    <div class="dr-body" id="drBody"></div>
+    <div class="dr-foot" id="drFootReview">
+      <button class="btn no" id="actReject">打回</button>
+      <button class="btn ok" id="actApprove">通过并发布</button>
+    </div>
+    <div class="dr-foot" id="drFootEdit" style="display:none">
+      <button class="btn" id="editCancel">取消</button>
+      <button class="btn pub" id="editSave">保存修改</button>
+    </div>
+    <div class="dr-foot" id="drFootMerge" style="display:none">
+      <button class="btn" id="mergeCancel">取消</button>
+      <button class="btn pub" id="mergeConfirm">确认合并所选</button>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  var API='http://localhost:8000/v1';
+  var TOKEN='member-token'; // CMS 以运营账号身份访问，可见审核态全文
+  var MOD_CN={tech:'科技',finance:'金融',ai:'AI',macro:'宏观'};
+
+  function api(path,opts){
+    opts=opts||{};
+    var h={'Authorization':'Bearer '+TOKEN};
+    if(opts.body) h['Content-Type']='application/json';
+    return fetch(API+path,{method:opts.method||'GET',headers:h,body:opts.body?JSON.stringify(opts.body):undefined})
+      .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+      .then(function(j){if(j.code!==0)throw new Error(j.message||'err');return j.data;});
+  }
+  function el(id){return document.getElementById(id);}
+  var _t;
+  function toast(msg){var t=el('toast');t.textContent=msg;t.classList.add('on');clearTimeout(_t);_t=setTimeout(function(){t.classList.remove('on');},1800);}
+  function impCls(v){return v>=85?'h':v>=70?'m':'l';}
+
+  /* —— 路由 —— */
+  var TITLES={overview:'运营概览',business:'运营数据',review:'内容审核',push:'推送运营',sources:'信源管理'};
+  document.querySelectorAll('.nav-i').forEach(function(n){
+    n.addEventListener('click',function(){
+      var p=n.getAttribute('data-page');
+      document.querySelectorAll('.nav-i').forEach(function(x){x.classList.remove('on');});
+      n.classList.add('on');
+      document.querySelectorAll('.page').forEach(function(x){x.classList.remove('on');});
+      el('page-'+p).classList.add('on');
+      el('pageTitle').innerHTML=TITLES[p]+(p==='overview'||p==='business'?' <span class="live">实时</span>':'');
+      if(p==='business'&&!business.loaded){loadBusiness();business.loaded=true;}
+      if(p==='review'&&!review.loaded){loadEvents(curStatus);review.loaded=true;}
+      if(p==='push'&&!push.loaded){loadPush();push.loaded=true;}
+      if(p==='sources'&&!sources.loaded){loadSources();sources.loaded=true;}
+    });
+  });
+
+  /* —— 概览 —— */
+  function loadOverview(){
+    api('/admin/stats/pipeline').then(function(d){
+      el('kpis').innerHTML=
+        kpi('采集量',d.collected,'amber','今日入库原文')+
+        kpi('成稿事件',d.events,'amber','聚类后事件数')+
+        kpi('分类准确',(d.classify_acc*100).toFixed(0)+'%','down','自动分类命中')+
+        kpi('人工打回',(d.reject_rate*100).toFixed(0)+'%','up','质检拦截率')+
+        kpi('端到端',d.e2e_latency_sec+'s','','采集→发布时延');
+      el('f-collect').textContent=d.collected;
+      el('f-dedup').textContent='-'+d.dedup_removed;
+      el('f-acc').textContent=(d.classify_acc*100).toFixed(0)+'%';
+      el('f-events').textContent=d.events;
+      el('f-reject').textContent=(d.reject_rate*100).toFixed(0)+'%';
+      el('f-lat').textContent=d.e2e_latency_sec;
+    }).catch(function(e){el('kpis').innerHTML='<div class="empty">指标加载失败：'+e.message+'</div>';});
+    // 待办计数（用各状态列表 total）
+    countStatus('reviewing','todo-review');
+    countStatus('published','todo-pub');
+    countStatus('rejected','todo-rej');
+  }
+  function kpi(k,v,cls,d){return '<div class="kpi"><div class="k">'+k+'</div><div class="v '+(cls||'')+'">'+v+'</div><div class="d">'+d+'</div></div>';}
+  function countStatus(st,id){api('/admin/events?status='+st).then(function(d){el(id).textContent=d.pagination?d.pagination.total:(d.items||[]).length;}).catch(function(){});}
+
+  /* —— 运营数据看板 —— */
+  var business={loaded:false};
+  function fmt(n){return n>=10000?(n/10000).toFixed(2)+'万':n.toLocaleString();}
+  function pct(v){return (v*100).toFixed(1)+'%';}
+  function wow(v){var up=v>=0;return '<span class="wow '+(up?'up':'dn')+'">'+(up?'▲':'▼')+Math.abs(v*100).toFixed(1)+'%</span>';}
+  function loadBusiness(){
+    api('/admin/stats/business').then(function(d){
+      var k=d.kpi;
+      el('bizKpis').innerHTML=
+        bkpi('DAU 日活',fmt(k.dau),'amber',wow(k.dau_wow)+' 周环比')+
+        bkpi('MAU 月活',fmt(k.mau),'amber',wow(k.mau_wow)+' 周环比')+
+        bkpi('次日留存 D7',pct(k.retention_d7),'down','D30 '+pct(k.retention_d30))+
+        bkpi('推送打开率',pct(k.push_open_rate),'','早报触达')+
+        bkpi('付费转化',pct(k.pay_conversion),'up','付费用户 '+fmt(k.paying_users))+
+        bkpi('ARPU','¥'+k.arpu,'','MRR ¥'+fmt(k.mrr));
+      // 趋势折柱图
+      var t=d.trend, maxD=Math.max.apply(null,t.dau);
+      el('trendChart').innerHTML=t.days.map(function(day,i){
+        var h1=(t.dau[i]/maxD*100).toFixed(0), h2=(t.new_user[i]/maxD*100).toFixed(0), h3=(t.paying[i]/maxD*100*10).toFixed(0);
+        return '<div class="col" title="'+day+'：DAU '+t.dau[i]+' / 新增 '+t.new_user[i]+' / 付费 '+t.paying[i]+'">'
+          +'<div class="bars"><div class="bar dau" style="height:'+h1+'%"></div>'
+          +'<div class="bar nw" style="height:'+h2+'%"></div>'
+          +'<div class="bar py" style="height:'+Math.max(h3,2)+'%"></div></div>'
+          +'<div class="xl">'+day+'</div></div>';
+      }).join('');
+      // 模块占比
+      el('moduleDist').innerHTML=d.module_dist.map(function(m){
+        return '<div class="mrow"><div class="mh"><span>'+(MOD_CN[m.module]||m.module)+'</span><span class="pc">'+pct(m.pct)+'</span></div>'
+          +'<div class="track"><div class="fill '+m.module+'" style="width:'+(m.pct*100)+'%"></div></div></div>';
+      }).join('');
+      // 漏斗
+      var top=d.funnel[0].value;
+      el('funnel').innerHTML=d.funnel.map(function(f,i){
+        var w=(f.value/top*100).toFixed(1);
+        var rate=i===0?'100%':(f.value/d.funnel[i-1].value*100).toFixed(1)+'%';
+        return '<div class="fnl"><div class="lab">'+f.stage+'</div>'
+          +'<div class="barwrap"><div class="fbar" style="width:'+w+'%">'+fmt(f.value)+'</div></div>'
+          +'<div class="rate">'+rate+'</div></div>';
+      }).join('');
+    }).catch(function(e){el('bizKpis').innerHTML='<div class="empty">业务指标加载失败：'+e.message+'</div>';});
+  }
+  function bkpi(k,v,cls,d){return '<div class="kpi"><div class="k">'+k+'</div><div class="v '+(cls||'')+'">'+v+'</div><div class="d">'+d+'</div></div>';}
+
+  /* —— 内容审核 —— */
+  var review={loaded:false};
+  var curStatus='reviewing';
+  el('statusSeg').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    curStatus=b.getAttribute('data-st');
+    el('statusSeg').querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});
+    loadEvents(curStatus);
+  });
+  function loadEvents(st){
+    el('evRows').innerHTML='<tr><td colspan="4" class="empty">加载中…</td></tr>';
+    api('/admin/events?status='+st).then(function(d){
+      var items=d.items||[];
+      evCache=items;
+      el('evCount').textContent='共 '+(d.pagination?d.pagination.total:items.length)+' 条';
+      if(!items.length){el('evRows').innerHTML='<tr><td colspan="4" class="empty">暂无内容</td></tr>';return;}
+      el('evRows').innerHTML=items.map(function(e){
+        var flags=(e.pinned?'<span class="flag pin">置顶</span>':'')+(e.pushed?'<span class="flag push">已推</span>':'');
+        return '<tr class="row" data-id="'+e.event_id+'" data-imp="'+e.importance+'">'
+          +'<td><span class="mod '+e.module+'">'+(MOD_CN[e.module]||e.module)+'</span></td>'
+          +'<td class="ti"><div class="tx">'+e.title+flags+'</div></td>'
+          +'<td><span class="imp '+impCls(e.importance)+'">'+e.importance+'</span></td>'
+          +'<td><span class="st-tag '+e.status+'">'+stCN(e.status)+'</span></td></tr>';
+      }).join('');
+      el('evRows').querySelectorAll('tr.row').forEach(function(tr){
+        tr.addEventListener('click',function(){
+          el('evRows').querySelectorAll('tr.row').forEach(function(x){x.classList.remove('sel');});
+          tr.classList.add('sel');
+          openReview(tr.getAttribute('data-id'),+tr.getAttribute('data-imp'));
+        });
+      });
+    }).catch(function(e){el('evRows').innerHTML='<tr><td colspan="4" class="empty">加载失败：'+e.message+'</td></tr>';});
+  }
+  function stCN(s){return {reviewing:'待审核',published:'已发布',rejected:'已打回'}[s]||s;}
+
+  /* —— 审核抽屉 —— */
+  var curEvent=null, curData=null, evCache=[];
+  function curMeta(){for(var i=0;i<evCache.length;i++){if(evCache[i].event_id===curEvent)return evCache[i];}return {};}
+  function setFoot(mode){
+    el('drFootReview').style.display=mode==='review'?'flex':'none';
+    el('drFootEdit').style.display=mode==='edit'?'flex':'none';
+    el('drFootMerge').style.display=mode==='merge'?'flex':'none';
+  }
+  function syncToolbar(){
+    var m=curMeta();
+    el('actPin').classList.toggle('on',!!m.pinned);
+    el('actPin').textContent=(m.pinned?'⤓ 取消置顶':'⤒ 置顶');
+    el('actPush').classList.toggle('on',!!m.pushed);
+    el('actPush').textContent=(m.pushed?'✓ 已推送':'⇪ 推送');
+  }
+  function openReview(id,imp){
+    curEvent=id; curImp=imp;
+    el('drBody').innerHTML='<div class="empty">加载中…</div>';
+    setFoot('review');
+    el('drawer').classList.add('on'); el('scrim').classList.add('on');
+    syncToolbar();
+    Promise.all([api('/events/'+id),api('/admin/events/'+id+'/validation')]).then(function(r){
+      var d=r[0],v=r[1]; curData=d; lastVal=v;
+      renderReview(d,v,imp);
+    }).catch(function(e){el('drBody').innerHTML='<div class="empty">加载失败：'+e.message+'</div>';});
+  }
+  var curImp=0, lastVal={checks:[],overall:'pass'};
+  function renderReview(d,v,imp){
+    var srcs=(d.sources||[]).map(function(s){return '<span class="s">'+s.name+(s.level?' · '+s.level:'')+'</span>';}).join('');
+    var dc=d.deep_content||{};
+    var sum=(d.summary||[]).join('\n\n');
+    var art=dc.content||(dc.is_locked?(dc.preview||''):'')||sum;
+    el('drBody').innerHTML=
+      '<div class="dt">'+d.title+'</div>'
+      +'<div class="dr-meta"><span class="mod '+d.module+'">'+(MOD_CN[d.module]||d.module)+'</span>'
+      +'<span class="imp '+impCls(imp)+'" style="font-size:13px">重要度 '+imp+'</span>'
+      +'<span style="font-size:11px;color:var(--ink-3)">'+(d.source_count||(d.sources||[]).length)+' 源交叉</span></div>'
+      +'<div class="src-list">'+srcs+'</div>'
+      +'<div class="val"><div class="vh">机器质检 · 防幻觉护栏</div>'
+      + (v.checks||[]).map(function(c){return '<div class="vrow"><span>'+ckCN(c.type)+'</span><span class="'+(c.pass?'ok':'no')+'">'+(c.pass?'✓ 通过':'✗ 未过')+'</span></div>';}).join('')
+      +'<div class="overall">综合结论：<span class="'+(v.overall==='pass'?'ok':'no')+'">'+(v.overall==='pass'?'✓ 可发布':'✗ 需复核')+'</span></div></div>'
+      +(d.why_matters?'<div class="vh" style="font-size:11px;color:var(--accent);letter-spacing:1px;font-weight:700">为何重要</div><div class="dr-art" style="margin-top:8px">'+d.why_matters+'</div>':'')
+      +'<div class="vh" style="font-size:11px;color:var(--accent);letter-spacing:1px;font-weight:700;margin-top:16px">AI 产出全文</div>'
+      +'<div class="dr-art">'+(art||'（无正文）')+'</div>';
+  }
+  function ckCN(t){return {citation:'引用校验',number_consistency:'数字一致性',compliance:'合规检查',disclaimer:'免责声明'}[t]||t;}
+  function closeDrawer(){el('drawer').classList.remove('on');el('scrim').classList.remove('on');}
+  el('drClose').addEventListener('click',closeDrawer);
+  el('scrim').addEventListener('click',closeDrawer);
+
+  function refreshAfter(){loadEvents(curStatus);if(el('page-overview').classList.contains('on'))loadOverview();}
+  function doAction(action,label,body){
+    if(!curEvent)return;
+    api('/admin/events/'+curEvent+'/'+action,{method:'POST',body:body||{}}).then(function(res){
+      toast(label+'成功');
+      // 置顶/推送：原地更新工具栏与缓存，不关抽屉
+      var m=curMeta();
+      if(action==='pin'){m.pinned=true;} if(action==='unpin'){m.pinned=false;}
+      if(action==='push'){m.pushed=true;}
+      if(action==='pin'||action==='unpin'||action==='push'){syncToolbar();loadEvents(curStatus);return;}
+      closeDrawer(); refreshAfter();
+    }).catch(function(e){toast('操作失败：'+e.message);});
+  }
+  el('actApprove').addEventListener('click',function(){doAction('approve','通过并发布');});
+  el('actReject').addEventListener('click',function(){doAction('reject','打回');});
+  el('actPin').addEventListener('click',function(){doAction(curMeta().pinned?'unpin':'pin',curMeta().pinned?'取消置顶':'置顶');});
+  el('actPush').addEventListener('click',function(){if(curMeta().pushed){toast('该事件已推送');return;}doAction('push','推送',{audience:'all'});});
+
+  /* —— 在线编辑 —— */
+  el('actEdit').addEventListener('click',function(){
+    if(!curData)return;
+    setFoot('edit');
+    el('drBody').innerHTML=
+      '<div class="efield"><label>标题</label><input id="edTitle" value="'+(curData.title||'').replace(/"/g,'&quot;')+'"></div>'
+      +'<div class="efield"><label>摘要要点（每行一条）</label><textarea id="edSummary" rows="6">'+(curData.summary||[]).join('\n')+'</textarea><div class="hint">人工校订 AI 摘要，修正错别字 / 断句 / 事实偏差</div></div>'
+      +'<div class="efield"><label>为何重要</label><textarea id="edWhy" rows="3">'+(curData.why_matters||'')+'</textarea></div>';
+  });
+  el('editCancel').addEventListener('click',function(){setFoot('review');renderReview(curData,lastVal,curImp);});
+  el('editSave').addEventListener('click',function(){
+    var body={title:el('edTitle').value,
+      summary:el('edSummary').value.split('\n').map(function(s){return s.trim();}).filter(Boolean),
+      why_matters:el('edWhy').value};
+    api('/admin/events/'+curEvent+'/edit',{method:'POST',body:body}).then(function(d){
+      curData.title=d.title;curData.summary=d.summary;curData.why_matters=d.why_matters;
+      var m=curMeta();if(m)m.title=d.title;
+      toast('修改已保存');
+      setFoot('review');renderReview(curData,lastVal,curImp);loadEvents(curStatus);
+    }).catch(function(e){toast('保存失败：'+e.message);});
+  });
+
+  /* —— 合并拆分 —— */
+  el('actMerge').addEventListener('click',function(){
+    setFoot('merge');
+    // 同模块的其他事件作为合并候选（把它们并入当前事件）
+    var cands=evCache.filter(function(e){return e.event_id!==curEvent;});
+    el('drBody').innerHTML=
+      '<div class="vh" style="font-size:11px;color:var(--accent);letter-spacing:1px;font-weight:700">合并到当前事件</div>'
+      +'<div class="dr-art" style="margin:8px 0 4px;color:var(--ink-2)">勾选下方重复/同源事件，确认后它们的信源将并入「'+(curData?curData.title:'')+'」，并被标记为已打回（下线）。用于纠正错误聚类。</div>'
+      +'<div class="mpick" id="mpick">'+cands.map(function(e){
+        return '<div class="mp-row" data-id="'+e.event_id+'"><div class="cb">✓</div><div class="tx">'+e.title+'</div></div>';
+      }).join('')+'</div>';
+    el('mpick').querySelectorAll('.mp-row').forEach(function(row){
+      row.addEventListener('click',function(){row.classList.toggle('sel');});
+    });
+  });
+  el('mergeCancel').addEventListener('click',function(){setFoot('review');renderReview(curData,lastVal,curImp);});
+  el('mergeConfirm').addEventListener('click',function(){
+    var ids=[].map.call(el('mpick').querySelectorAll('.mp-row.sel'),function(r){return r.getAttribute('data-id');});
+    if(!ids.length){toast('请先勾选要合并的事件');return;}
+    api('/admin/events/merge',{method:'POST',body:{target_id:curEvent,source_ids:ids}}).then(function(d){
+      toast('已合并 '+d.merged_count+' 条，信源合计 '+d.source_count);
+      setFoot('review');closeDrawer();refreshAfter();
+    }).catch(function(e){toast('合并失败：'+e.message);});
+  });
+
+  /* —— 推送运营 —— */
+  var push={loaded:false};
+  var dgCfg={enabled:true,send_time:'08:00',audience:'all',modules:[],top_n:5};
+  function pct1(v){return (v*100).toFixed(1)+'%';}
+  function fmtTime(iso){return (iso||'').replace('T',' ').replace('Z','').slice(5,16);}
+  function loadPush(){
+    // 历史 + 概览
+    api('/admin/push/history').then(function(d){
+      var s=d.summary;
+      el('pushKpis').innerHTML=
+        bkpi('推送次数',s.push_count,'amber','含早报与手动推送')+
+        bkpi('累计触达',fmt(s.total_sent),'amber','消息送达设备数')+
+        bkpi('累计打开',fmt(s.total_opened),'down','用户点开消息')+
+        bkpi('平均打开率',pct1(s.avg_open_rate),'up','行业基准约 8-15%');
+      var items=d.items||[];
+      el('pushRows').innerHTML=items.length?items.map(function(p){
+        var or=p.open_rate||0;
+        return '<tr><td><span class="ptype '+p.type+'">'+(p.type==='daily'?'早报':'手动')+'</span></td>'
+          +'<td class="ti"><div class="tx">'+p.title+'</div></td>'
+          +'<td>'+audCN(p.audience)+'</td>'
+          +'<td class="pmono">'+fmt(p.sent)+'</td>'
+          +'<td><div class="orate"><div class="ot"><div class="of" style="width:'+(or*100)+'%"></div></div><span class="ov">'+pct1(or)+'</span></div></td>'
+          +'<td class="pmono">'+fmtTime(p.pushed_at)+'</td></tr>';
+      }).join(''):'<tr><td colspan="6" class="empty">暂无推送记录</td></tr>';
+    }).catch(function(e){el('pushKpis').innerHTML='<div class="empty">加载失败：'+e.message+'</div>';});
+    // 早报配置
+    api('/admin/push/digest').then(function(c){
+      dgCfg=c;
+      el('dgEnabled').classList.toggle('on',!!c.enabled);
+      el('dgTime').value=c.send_time;
+      el('dgAudience').querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-a')===c.audience);});
+      el('dgTopN').querySelectorAll('button').forEach(function(b){b.classList.toggle('on',+b.getAttribute('data-n')===c.top_n);});
+      el('dgModules').querySelectorAll('.chip').forEach(function(ch){ch.classList.toggle('on',(c.modules||[]).indexOf(ch.getAttribute('data-m'))>=0);});
+      dgPreview();
+    });
+  }
+  function audCN(a){return {all:'全部用户',member:'仅会员',free:'仅免费'}[a]||a;}
+  function dgPreview(){
+    el('dgPreview').innerHTML='预览：每日 <b>'+dgCfg.send_time+'</b> 向 <b>'+audCN(dgCfg.audience)
+      +'</b> 推送 <b>'+(dgCfg.modules||[]).length+'</b> 个模块 TOP <b>'+dgCfg.top_n+'</b> 要闻'
+      +(dgCfg.enabled?'':'（已暂停）');
+  }
+  // 交互绑定
+  el('dgEnabled').addEventListener('click',function(){this.classList.toggle('on');dgCfg.enabled=this.classList.contains('on');dgPreview();});
+  el('dgTime').addEventListener('change',function(){dgCfg.send_time=this.value;dgPreview();});
+  el('dgAudience').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+    this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});dgCfg.audience=b.getAttribute('data-a');dgPreview();});
+  el('dgTopN').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+    this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});dgCfg.top_n=+b.getAttribute('data-n');dgPreview();});
+  el('dgModules').addEventListener('click',function(e){var ch=e.target.closest('.chip');if(!ch)return;
+    ch.classList.toggle('on');dgCfg.modules=[].map.call(this.querySelectorAll('.chip.on'),function(x){return x.getAttribute('data-m');});dgPreview();});
+  el('dgSave').addEventListener('click',function(){
+    api('/admin/push/digest',{method:'POST',body:dgCfg}).then(function(){toast('早报配置已保存');}).catch(function(e){toast('保存失败：'+e.message);});
+  });
+  el('dgSendNow').addEventListener('click',function(){
+    api('/admin/push/digest/send',{method:'POST',body:{}}).then(function(d){
+      toast('已发送：'+d.title+'（'+d.included.length+' 条）');loadPush();
+    }).catch(function(e){toast('发送失败：'+e.message);});
+  });
+
+  /* —— 信源管理 —— */
+  var sources={loaded:false};
+  var WMAP={S:'1.0',A:'0.7',B:'0.3'};
+  var sfEdit=null;            // 当前编辑的信源 id（null=新增模式）
+  var sfLv='B';              // 表单选中分级
+  function loadSources(){
+    api('/admin/sources').then(function(d){
+      var items=d.items||[];
+      el('srcCount').textContent='共 '+items.length+' 个信源';
+      el('srcList').innerHTML=items.length?items.map(function(s){
+        var w=(s.weight!=null?s.weight:WMAP[s.level]);
+        return '<div class="src'+(s.enabled?'':' off')+'" data-id="'+s.id+'">'
+          +'<div class="lv '+s.level+'">'+s.level+'</div>'
+          +'<div class="nm">'+s.name+(s.url?' <span style="font-size:10px;color:var(--ink-3);font-weight:400">'+s.url.replace(/^https?:\/\//,'')+'</span>':'')+'</div>'
+          +'<div class="w" data-act="weight" title="点击调权重">权重 '+(+w).toFixed(2)+'</div>'
+          +'<div class="sw'+(s.enabled?' on':'')+'" data-act="toggle"></div>'
+          +'<div class="sact"><button data-act="edit">编辑</button><button class="del" data-act="del">删除</button></div>'
+          +'</div>';
+      }).join(''):'<div class="empty">暂无信源，点击右上角新增</div>';
+    }).catch(function(e){el('srcList').innerHTML='<div class="empty">加载失败：'+e.message+'</div>';});
+  }
+  function sfOpen(s){
+    sfEdit=s?s.id:null;
+    el('sfName').value=s?s.name:'';
+    el('sfUrl').value=s?(s.url||''):'';
+    sfLv=s?s.level:'B';
+    el('sfLevel').querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-l')===sfLv);});
+    el('sfWeight').value=s?(+(s.weight!=null?s.weight:WMAP[s.level])).toFixed(2):WMAP[sfLv];
+    el('srcForm').style.display='block';
+    el('sfName').focus();
+  }
+  function sfClose(){el('srcForm').style.display='none';sfEdit=null;}
+  el('srcAdd').addEventListener('click',function(){sfOpen(null);});
+  el('sfCancel').addEventListener('click',sfClose);
+  el('sfLevel').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+    sfLv=b.getAttribute('data-l');
+    this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});
+    el('sfWeight').value=WMAP[sfLv];   // 改级默认回填权重，用户仍可微调
+  });
+  el('sfSave').addEventListener('click',function(){
+    var name=el('sfName').value.trim();
+    if(!name){toast('请填写信源名称');return;}
+    var body={name:name,url:el('sfUrl').value.trim(),level:sfLv,weight:parseFloat(el('sfWeight').value)||WMAP[sfLv]*1};
+    var path=sfEdit?('/admin/sources/'+sfEdit):'/admin/sources';
+    api(path,{method:'POST',body:body}).then(function(){
+      toast(sfEdit?'信源已更新':'信源已新增');sfClose();loadSources();
+    }).catch(function(e){toast('保存失败：'+e.message);});
+  });
+  el('srcList').addEventListener('click',function(e){
+    var row=e.target.closest('.src');if(!row)return;
+    var id=row.getAttribute('data-id');
+    var act=(e.target.getAttribute('data-act'))||'';
+    if(act==='toggle'){
+      var on=!e.target.classList.contains('on');
+      api('/admin/sources/'+id,{method:'POST',body:{enabled:on}}).then(function(){loadSources();}).catch(function(x){toast('操作失败：'+x.message);});
+    }else if(act==='weight'){
+      var cur=e.target.textContent.replace(/[^0-9.]/g,'');
+      var v=prompt('设置权重（0–1）',cur);
+      if(v===null)return;
+      var nv=parseFloat(v);if(isNaN(nv)){toast('请输入 0–1 的数字');return;}
+      api('/admin/sources/'+id,{method:'POST',body:{weight:nv}}).then(function(){toast('权重已更新');loadSources();}).catch(function(x){toast('操作失败：'+x.message);});
+    }else if(act==='edit'){
+      api('/admin/sources').then(function(d){var s=(d.items||[]).filter(function(x){return x.id===id;})[0];if(s)sfOpen(s);});
+    }else if(act==='del'){
+      if(!confirm('确认删除该信源？'))return;
+      api('/admin/sources/'+id+'/delete',{method:'POST',body:{}}).then(function(){toast('信源已删除');loadSources();}).catch(function(x){toast('删除失败：'+x.message);});
+    }
+  });
+
+  /* —— 启动 —— */
+  loadOverview();
+</script>
+</body>
+</html>
