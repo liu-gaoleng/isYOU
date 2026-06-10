@@ -1,33 +1,39 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
 *.egg-info/
+.eggs/
+build/
+dist/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Virtualenv
 .venv/
 venv/
 env/
-
-# 环境变量与密钥
-.env
-.env.*
-*.key
-*.pem
-secrets.json
-credentials.json
-
-# Node
-node_modules/
-dist/
-build/
-
-# 日志与临时文件
-*.log
-/tmp/
-
-# 操作系统
-.DS_Store
-Thumbs.db
 
 # IDE
 .idea/
 .vscode/
 *.swp
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+
+# Docker volumes (compose 创建在容器内，本地若有挂载导出再忽略)
+pgdata/
+redisdata/
+
+# Alembic 自动生成的版本暂不忽略（需要纳入版本管理）

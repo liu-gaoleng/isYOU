@@ -1,0 +1,41 @@
+# 「热读」内容引擎本地依赖：PostgreSQL(pgvector) + Redis
+# 用法：docker compose up -d
+# 数据卷持久化：pgdata / redisdata（销毁请用 docker compose down -v）
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: rd_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rd}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rd}
+      POSTGRES_DB: ${POSTGRES_DB:-redu}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./content_engine/migrations/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rd} -d ${POSTGRES_DB:-redu}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: rd_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
+  redisdata:
