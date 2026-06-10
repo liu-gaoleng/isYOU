@@ -167,6 +167,30 @@
   .report .d{font-size:10.5px;color:var(--ink-3);margin-top:5px;}
   .report .price{font-size:14px;color:var(--up);font-weight:800;margin-top:9px;font-family:var(--mono);}
   .report .price s{color:var(--ink-3);font-weight:400;font-size:10.5px;margin-left:6px;}
+  .report .owned{color:var(--down);}
+  /* 报告购买/详情 */
+  .rpt-buy{margin-left:auto;align-self:center;font-size:11.5px;font-weight:800;padding:7px 13px;border-radius:8px;background:var(--accent);color:#0d0f12;white-space:nowrap;cursor:pointer;}
+  .rpt-buy.got{background:var(--card-2);color:var(--down);border:1px solid var(--line);}
+  .rpt-d-sum{font-size:13px;color:var(--ink-2);line-height:1.6;margin:14px 0 4px;}
+  .rpt-d-toc{list-style:none;margin:10px 0;padding:0;}
+  .rpt-d-toc li{font-size:12.5px;color:var(--ink);padding:10px 0;border-bottom:1px solid var(--line);display:flex;gap:9px;}
+  .rpt-d-toc li::before{content:counter(li,decimal-leading-zero);counter-increment:li;color:var(--accent);font-family:var(--mono);font-size:11px;}
+  .rpt-d-toc{counter-reset:li;}
+  .rpt-d-pay{margin-top:18px;background:var(--accent);color:#0d0f12;text-align:center;padding:13px;border-radius:11px;font-size:13.5px;font-weight:800;cursor:pointer;}
+  .rpt-d-pay.got{background:var(--card-2);color:var(--down);border:1px solid var(--line);cursor:default;}
+  /* 登录 */
+  .login-hd{font-size:18px;font-weight:800;color:var(--ink);margin:8px 0 4px;}
+  .login-sub{font-size:12px;color:var(--ink-3);margin-bottom:22px;}
+  .login-field{display:flex;align-items:center;background:var(--card-2);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:12px;}
+  .login-field .pfx{font-size:13px;color:var(--ink-2);font-family:var(--mono);margin-right:10px;border-right:1px solid var(--line);padding-right:10px;}
+  .login-field input{flex:1;background:transparent;border:0;outline:0;color:var(--ink);font-size:14px;font-family:inherit;}
+  .login-field .sms{font-size:12px;color:var(--accent);font-weight:700;white-space:nowrap;cursor:pointer;}
+  .login-field .sms.dim{color:var(--ink-3);cursor:default;}
+  .login-btn{margin-top:8px;background:var(--accent);color:#0d0f12;text-align:center;padding:13px;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;}
+  .login-alt{display:flex;gap:10px;margin-top:16px;}
+  .login-alt .a{flex:1;text-align:center;font-size:12px;color:var(--ink-2);background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:11px;cursor:pointer;}
+  .login-tip{font-size:11px;color:var(--ink-3);text-align:center;margin-top:18px;line-height:1.6;}
+  .login-tip em{color:var(--accent);font-style:normal;font-family:var(--mono);}
 
   /* —— 我的 —— */
   .profile{padding:20px;}
@@ -215,6 +239,21 @@
   .me-sw.on{background:var(--accent-soft);border-color:rgba(243,177,59,.5);}
   .me-sw.on::after{left:21px;background:var(--accent);}
   .me-time{margin-left:auto;font-size:13px;color:var(--accent);font-family:var(--mono);background:var(--card-2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer;}
+  /* 搜索 */
+  .tb-right{display:flex;align-items:center;gap:10px;}
+  .srch-ico{font-size:14px;cursor:pointer;opacity:.85;line-height:1;}
+  .srch-ico:hover{opacity:1;}
+  .srch-bar{display:flex;align-items:center;gap:8px;background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin:2px 0 12px;}
+  .srch-bar input{flex:1;background:transparent;border:0;outline:0;color:var(--ink);font-size:13.5px;font-family:inherit;}
+  .srch-bar input::placeholder{color:var(--ink-3);}
+  .srch-bar .go{font-size:12px;color:var(--accent);font-weight:700;cursor:pointer;white-space:nowrap;}
+  .srch-scope{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .srch-scope .sc{font-size:11.5px;color:var(--ink-3);background:var(--card-2);border:1px solid var(--line);border-radius:999px;padding:5px 13px;cursor:pointer;}
+  .srch-scope .sc.on{color:var(--accent);border-color:rgba(243,177,59,.5);background:var(--accent-soft);font-weight:700;}
+  .srch-hd{font-size:11px;color:var(--ink-3);margin:2px 0 8px;}
+  .srch-hd em{color:var(--accent);font-style:normal;font-family:var(--mono);}
+  .more-btn{text-align:center;font-size:12.5px;color:var(--accent);font-weight:700;padding:14px;cursor:pointer;border:1px dashed var(--line);border-radius:10px;margin-top:6px;}
+  .more-btn.loading{color:var(--ink-3);cursor:default;}
 
 </style>
 </head>
@@ -235,7 +274,7 @@
         <div class="statusbar"><span>9:41</span><span></span></div>
         <div class="scroll">
           <div class="pad" style="padding-top:6px">
-            <div class="topbar"><span class="logo">热读</span><span class="live">实时更新中</span></div>
+            <div class="topbar"><span class="logo">热读</span><span class="tb-right"><span class="srch-ico" onclick="openSearch('')">🔍</span><span class="live">实时更新中</span></span></div>
             <div class="date" id="homeDate">6 月 8 日 周一 · 今日 142 条热点已为你筛选</div>
 
             <div class="slogan">
@@ -536,10 +575,12 @@
         <div class="scroll">
           <div class="pad" style="padding-top:10px">
             <div class="topbar"><span class="logo" style="font-size:20px">研究 · 数据</span></div>
-            <div class="blk"><span class="t">精选报告</span><span class="m">会员折扣</span></div>
+            <div class="blk"><span class="t">精选报告</span><span class="m" id="reportHint">会员折扣</span></div>
+            <div id="reportList">
             <div class="report"><div class="thumb"></div><div><h4>2026 AI 应用层投资地图</h4><div class="d">62 页 · 含 200+ 标的数据库</div><div class="price">¥299 <s>会员 8 折</s></div></div></div>
             <div class="report"><div class="thumb"></div><div><h4>一级市场融资月报 · 5 月</h4><div class="d">38 页 · 赛道热度与估值追踪</div><div class="price">¥99 <s>会员免费</s></div></div></div>
             <div class="report"><div class="thumb"></div><div><h4>宏观季度展望：利率与流动性</h4><div class="d">45 页 · 含数据看板访问权</div><div class="price">¥199 <s>会员 8 折</s></div></div></div>
+            </div>
           </div>
         </div>
         <div class="tabbar"><div class="t"><div class="ic"></div>简报</div><div class="t"><div class="ic"></div>频道</div><div class="t on"><div class="ic c"></div>报告</div><div class="t"><div class="ic"></div>圈子</div><div class="t"><div class="ic c"></div>我的</div></div>
@@ -600,8 +641,9 @@
             <div class="menu">
               <div class="m" id="meFav">我的收藏<span class="r" id="meFavCount">›</span></div>
               <div class="m" id="meHistory">阅读历史<span class="r">›</span></div>
-              <div class="m">我购买的报告<span class="r">2 ›</span></div>
+              <div class="m" id="meReports">我购买的报告<span class="r" id="meReportCount">2 ›</span></div>
               <div class="m" id="meSettings">推送设置<span class="r" id="mePushTime">早 8:00 ›</span></div>
+              <div class="m" id="meLogin">登录 / 切换账号<span class="r" id="meLoginState">未登录 ›</span></div>
               <div class="m">关于热读<span class="r">›</span></div>
             </div>
           </div>
@@ -658,6 +700,67 @@
       <div class="statusbar"><span>9:41</span><span></span></div>
       <div class="navbar"><span class="back" onclick="closeMe()">‹</span><span class="nt" id="meTitle">我的收藏</span><span class="me-act" id="meAct"></span></div>
       <div class="scroll"><div class="pad" id="meBody"></div></div>
+    </div>
+  </div>
+
+  <!-- 搜索弹层 -->
+  <div class="modal" id="searchModal" onclick="if(event.target===this)closeSearch()">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span></span></div>
+      <div class="navbar"><span class="back" onclick="closeSearch()">‹</span><span class="nt">搜索</span><span class="me-act"></span></div>
+      <div class="scroll"><div class="pad" style="padding-top:10px">
+        <div class="srch-bar">
+          <span>🔍</span>
+          <input id="srchInput" type="text" placeholder="搜索热点事件 / 关键词…" autocomplete="off">
+          <span class="go" onclick="runSearch()">搜索</span>
+        </div>
+        <div class="srch-scope" id="srchScope">
+          <span class="sc on" data-scope="all">全部</span>
+          <span class="sc" data-scope="tech">科技</span>
+          <span class="sc" data-scope="finance">金融</span>
+          <span class="sc" data-scope="ai">AI</span>
+          <span class="sc" data-scope="macro">宏观</span>
+        </div>
+        <div id="srchBody"></div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- 报告详情弹层 -->
+  <div class="modal" id="rptModal" onclick="if(event.target===this)closeRpt()">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span>报告</span></div>
+      <div class="navbar"><span class="back" onclick="closeRpt()">‹</span><span class="nt">报告详情</span><span class="me-act"></span></div>
+      <div class="scroll"><div class="pad" id="rptBody"></div></div>
+    </div>
+  </div>
+
+  <!-- 登录弹层 -->
+  <div class="modal" id="loginModal" onclick="if(event.target===this)closeLogin()">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span></span></div>
+      <div class="navbar"><span class="back" onclick="closeLogin()">‹</span><span class="nt">登录</span><span class="me-act"></span></div>
+      <div class="scroll"><div class="pad" style="padding-top:18px">
+        <div class="login-hd">欢迎来到热读</div>
+        <div class="login-sub">登录后可同步收藏、历史与已购报告</div>
+        <div class="login-field">
+          <span class="pfx">+86</span>
+          <input id="lgPhone" type="tel" maxlength="11" placeholder="请输入手机号" autocomplete="off">
+        </div>
+        <div class="login-field">
+          <input id="lgCode" type="tel" maxlength="4" placeholder="请输入验证码" autocomplete="off">
+          <span class="sms" id="lgSms" onclick="sendSms()">获取验证码</span>
+        </div>
+        <div class="login-btn" onclick="doLogin('phone')">登录 / 注册</div>
+        <div class="login-alt">
+          <div class="a" onclick="doLogin('member')"> 会员账号一键体验</div>
+          <div class="a" onclick="doLogout()">退出登录</div>
+        </div>
+        <div class="login-tip">Mock 演示：任意 1 开头 11 位手机号 + 验证码 <em>1234</em> 即可登录。<br>「会员账号一键体验」可解锁付费墙与报告会员价。</div>
+      </div></div>
     </div>
   </div>
 
@@ -750,9 +853,17 @@
     }
 
     // ---- 频道 ----
+    function feedCardHtml(f){
+      return '<div class="card" data-eid="'+f.event_id+'">'+
+        '<div class="meta"><span class="chip">'+(MODULE_CN[f.module]||'热点')+'</span><span>·</span><span>'+(f.source_count||1)+' 源</span></div>'+
+        '<h3>'+f.title+'</h3>'+
+        (f.summary&&f.summary[0]?'<p>'+f.summary[0]+'</p>':'')+
+        (f.why_matters?'<div class="why">为何重要：'+f.why_matters+'</div>':'')+
+      '</div>';
+    }
     function loadChannel(phone){
       var module=phone.getAttribute('data-module');
-      api('/channels/'+module).then(function(d){
+      api('/channels/'+module+'?page=1&size=6').then(function(d){
         // 头条
         if(d.top_headline){
           var h=d.top_headline, hero=phone.querySelector('.hero');
@@ -777,20 +888,126 @@
             bindRk(phone);
           }
         }
-        // 要闻卡片
-        if(d.feed&&d.feed.length){
+        // 要闻卡片：前 2 条填入静态卡，其余追加到"加载更多"之前
+        var feed=d.feed||[];
+        var more=phone.querySelector('.loadmore');
+        if(feed.length){
           var cards=phone.querySelectorAll('.card');
           cards.forEach(function(card,i){
-            var f=d.feed[i]; if(!f) return;
+            var f=feed[i]; if(!f){card.style.display='none';return;}
             card.setAttribute('data-eid',f.event_id);
             var h3=card.querySelector('h3'); if(h3) h3.textContent=f.title;
             var p=card.querySelector('p'); if(p&&f.summary&&f.summary[0]) p.textContent=f.summary[0];
             var why=card.querySelector('.why');
             if(why&&f.why_matters) why.textContent='为何重要：'+f.why_matters;
           });
+          // 第 3 条起动态追加（紧跟最后一张静态卡之后）
+          var rest=feed.slice(cards.length);
+          if(rest.length){
+            var lastCard=cards[cards.length-1];
+            lastCard.insertAdjacentHTML('afterend', rest.map(feedCardHtml).join(''));
+          }
         }
+        // 分页：记录状态并接管"加载更多"按钮
+        var pg=d.pagination||{};
+        phone._page=pg.page||1; phone._size=pg.size||6;
+        if(more){
+          if(pg.has_more){
+            more.style.display=''; more.textContent='加载更多 ∨';
+            more.onclick=function(){loadMoreChannel(phone,more);};
+          }else{ more.style.display='none'; }
+        }
+        bindChannelCards(phone);
       }).catch(function(e){ console.warn('频道'+module+'加载失败，保留静态内容',e); });
     }
+    function bindChannelCards(phone){
+      phone.querySelectorAll('.card[data-eid]').forEach(function(c){
+        if(c._bound)return; c._bound=true;
+        c.addEventListener('click',function(){openEvent(null,null,null,c.getAttribute('data-eid'));});
+      });
+    }
+    function loadMoreChannel(phone,btn){
+      if(btn._loading)return; btn._loading=true; btn.textContent='加载中…';
+      var module=phone.getAttribute('data-module');
+      var next=(phone._page||1)+1;
+      api('/channels/'+module+'?page='+next+'&size='+(phone._size||6)).then(function(d){
+        phone._page=next;
+        var html=(d.feed||[]).map(feedCardHtml).join('');
+        btn.insertAdjacentHTML('beforebegin',html);
+        bindChannelCards(phone);
+        btn._loading=false;
+        var pg=d.pagination||{};
+        if(pg.has_more){ btn.textContent='加载更多 ∨'; }
+        else{ btn.textContent='已经到底啦'; btn.onclick=null; }
+      }).catch(function(e){ btn._loading=false; btn.textContent='加载失败，点击重试'; });
+    }
+
+    // ====== 搜索 ======
+    var searchModal=document.getElementById('searchModal');
+    var srchState={kw:'',scope:'all',page:1};
+    function openSearch(kw){
+      searchModal.classList.add('show');
+      srchState.scope='all'; srchState.page=1;
+      var scopeWrap=document.getElementById('srchScope');
+      scopeWrap.querySelectorAll('.sc').forEach(function(x){
+        x.classList.toggle('on', x.getAttribute('data-scope')==='all');
+      });
+      var inp=document.getElementById('srchInput');
+      inp.value=kw||'';
+      document.getElementById('srchBody').innerHTML='<div class="me-empty">输入关键词，搜索四大赛道的热点事件</div>';
+      setTimeout(function(){inp.focus();},80);
+      if(kw) runSearch();
+    }
+    function closeSearch(){searchModal.classList.remove('show');}
+    function runSearch(){
+      var kw=document.getElementById('srchInput').value.trim();
+      if(!kw){document.getElementById('srchBody').innerHTML='<div class="me-empty">请输入关键词</div>';return;}
+      srchState.kw=kw; srchState.page=1;
+      var body=document.getElementById('srchBody');
+      body.innerHTML='<div class="me-empty">搜索中…</div>';
+      fetchSearch(true);
+    }
+    function fetchSearch(reset){
+      var body=document.getElementById('srchBody');
+      api('/search?q='+encodeURIComponent(srchState.kw)+'&scope='+srchState.scope+'&page='+srchState.page+'&size=10').then(function(d){
+        var items=d.items||[];
+        if(reset){
+          if(!items.length){ body.innerHTML='<div class="me-empty">没有找到「'+srchState.kw+'」相关的热点</div>'; return; }
+          body.innerHTML='<div class="srch-hd">找到 <em>'+d.total_count+'</em> 条结果</div><div id="srchList"></div>';
+        }
+        var list=document.getElementById('srchList');
+        list.insertAdjacentHTML('beforeend', items.map(function(it){
+          return '<div class="me-item" data-eid="'+it.event_id+'">'+
+            '<div class="it">'+it.title+'</div>'+
+            '<div class="im">'+moduleChip(it.module)+'<span>'+(it.source_count||1)+' 源</span></div></div>';
+        }).join(''));
+        // 加载更多
+        var old=body.querySelector('.more-btn'); if(old) old.remove();
+        if(d.pagination&&d.pagination.has_more){
+          body.insertAdjacentHTML('beforeend','<div class="more-btn">加载更多 ∨</div>');
+          body.querySelector('.more-btn').onclick=function(){
+            this.classList.add('loading'); this.textContent='加载中…';
+            srchState.page++; fetchSearch(false);
+          };
+        }
+      }).catch(function(e){ if(reset) body.innerHTML='<div class="me-empty">搜索失败：'+e.message+'</div>'; });
+    }
+    // 范围切换
+    document.getElementById('srchScope').addEventListener('click',function(e){
+      var sc=e.target.closest('.sc'); if(!sc)return;
+      this.querySelectorAll('.sc').forEach(function(x){x.classList.remove('on');});
+      sc.classList.add('on'); srchState.scope=sc.getAttribute('data-scope');
+      if(srchState.kw) runSearch();
+    });
+    // 结果点击进详情 + 回车搜索
+    document.getElementById('srchBody').addEventListener('click',function(e){
+      var row=e.target.closest('.me-item[data-eid]');
+      if(row){closeSearch();openEvent(null,null,null,row.getAttribute('data-eid'));}
+    });
+    document.getElementById('srchInput').addEventListener('keydown',function(e){
+      if(e.key==='Enter')runSearch();
+    });
+
 
     // ====== 详情弹层 ======
     var modal=document.getElementById('modal');
@@ -866,6 +1083,7 @@
       });
     });
     document.querySelectorAll('.card').forEach(function(el){
+      el._bound=true;
       el.addEventListener('click',function(e){
         if(e.target.closest('.acts'))return;
         var eid=el.getAttribute('data-eid');
@@ -904,11 +1122,15 @@
         }
         var fc=document.getElementById('meFavCount');
         if(fc) fc.textContent=(st.favorites||0)+' ›';
+        var rc=document.getElementById('meReportCount');
+        if(rc) rc.textContent=(st.reports||0)+' ›';
       }).catch(function(e){console.warn('加载个人信息失败',e);});
       api('/me/settings').then(function(s){
         var t=document.getElementById('mePushTime');
         if(t) t.textContent=(s.daily_push?('早 '+s.push_time):'已关闭')+' ›';
       }).catch(function(){});
+      var ls=document.getElementById('meLoginState');
+      if(ls) ls.textContent=(TOKEN==='member-token'?'会员账号':(TOKEN?'已登录':'未登录'))+' ›';
     }
 
     // 收藏列表
@@ -996,16 +1218,140 @@
         return;
       }
       var row=e.target.closest('.me-item[data-eid]');
-      if(row){closeMe();openEvent(null,null,null,row.getAttribute('data-eid'));}
+      if(row){closeMe();openEvent(null,null,null,row.getAttribute('data-eid'));return;}
+      var rrow=e.target.closest('.me-item[data-rpt]');
+      if(rrow){closeMe();openReport(rrow.getAttribute('data-rpt'));}
     });
+    // ====== 报告：列表 / 详情 / 购买 ======
+    var rptModal=document.getElementById('rptModal');
+    function closeRpt(){rptModal.classList.remove('show');}
+    function priceHtml(r){
+      if(r.owned) return '<div class="price owned">已购买 · 可阅读</div>';
+      var sub=r.member_free?'会员免费':'会员 8 折 ¥'+r.member_price;
+      return '<div class="price">¥'+r.price+' <s>'+sub+'</s></div>';
+    }
+    function loadReports(){
+      var list=document.getElementById('reportList');
+      api('/reports').then(function(d){
+        var items=d.items||[];
+        var hint=document.getElementById('reportHint');
+        if(hint) hint.textContent=d.is_member?'会员价已生效':'会员折扣';
+        list.innerHTML=items.map(function(r){
+          var btn=r.owned?'<span class="rpt-buy got">已购</span>'
+            :'<span class="rpt-buy" data-buy="'+r.id+'">'+(r.member_free?'免费领':'¥'+(d.is_member?r.member_price:r.price))+'</span>';
+          return '<div class="report" data-rpt="'+r.id+'">'+
+            '<div class="thumb"></div>'+
+            '<div style="flex:1"><h4>'+r.title+'</h4><div class="d">'+r.desc+'</div>'+priceHtml(r)+'</div>'+
+            btn+'</div>';
+        }).join('');
+      }).catch(function(e){console.warn('加载报告失败',e);});
+    }
+    document.getElementById('reportList').addEventListener('click',function(e){
+      var buy=e.target.closest('[data-buy]');
+      if(buy){e.stopPropagation();buyReport(buy.getAttribute('data-buy'));return;}
+      var card=e.target.closest('[data-rpt]');
+      if(card) openReport(card.getAttribute('data-rpt'));
+    });
+    function openReport(id){
+      var body=document.getElementById('rptBody');
+      body.innerHTML='<div class="me-empty">加载中…</div>';
+      rptModal.classList.add('show');
+      api('/reports/'+id).then(function(r){
+        var toc=(r.toc||[]).map(function(t){return '<li>'+t+'</li>';}).join('');
+        var pay=r.owned?'<div class="rpt-d-pay got">✓ 已购买，可阅读完整报告</div>'
+          :'<div class="rpt-d-pay" data-buy="'+r.id+'">'+(r.member_free?'免费领取（会员）':'购买 ¥'+r.price+(r.member_price?(' · 会员 ¥'+r.member_price):''))+'</div>';
+        body.innerHTML=
+          '<div class="article"><span class="chip">'+(MODULE_CN[r.module]||'报告')+'</span>'+
+          '<h1>'+r.title+'</h1>'+
+          '<div class="by"><span>热读研究</span><span>·</span><span>'+r.pages+' 页</span></div></div>'+
+          '<div class="rpt-d-sum">'+r.summary+'</div>'+
+          '<div class="blk"><span class="t">报告目录</span></div>'+
+          '<ul class="rpt-d-toc">'+toc+'</ul>'+pay;
+      }).catch(function(e){body.innerHTML='<div class="me-empty">加载失败：'+e.message+'</div>';});
+    }
+    document.getElementById('rptBody').addEventListener('click',function(e){
+      var buy=e.target.closest('[data-buy]');
+      if(buy) buyReport(buy.getAttribute('data-buy'),true);
+    });
+    function buyReport(id,fromDetail){
+      apiPost('/reports/'+id+'/purchase',{}).then(function(d){
+        flash(d.amount===0?'已免费领取':'购买成功 ¥'+d.amount);
+        loadReports();loadMe();
+        if(fromDetail) openReport(id);
+      }).catch(function(e){flash('购买失败：'+e.message);});
+    }
+    // 我购买的报告（复用 meModal 列表）
+    function openMyReports(){
+      document.getElementById('meTitle').textContent='我购买的报告';
+      document.getElementById('meAct').textContent='';
+      var body=document.getElementById('meBody');
+      body.innerHTML='<div class="me-empty">加载中…</div>';
+      meModal.classList.add('show');
+      api('/reports/mine').then(function(d){
+        var items=d.items||[];
+        body.innerHTML=items.length?items.map(function(r){
+          return '<div class="me-item" data-rpt="'+r.id+'">'+
+            '<div class="it">'+r.title+'</div>'+
+            '<div class="im">'+moduleChip(r.module)+'<span>'+r.pages+' 页</span></div></div>';
+        }).join(''):'<div class="me-empty">还没有购买报告，去报告页看看吧</div>';
+      }).catch(function(e){body.innerHTML='<div class="me-empty">加载失败：'+e.message+'</div>';});
+    }
+
+    // ====== 登录流程 ======
+    var loginModal=document.getElementById('loginModal');
+    var smsTimer=null;
+    function openLogin(){loginModal.classList.add('show');}
+    function closeLogin(){loginModal.classList.remove('show');}
+    function sendSms(){
+      var phone=document.getElementById('lgPhone').value.trim();
+      apiPost('/auth/sms',{phone:phone}).then(function(d){
+        document.getElementById('lgCode').value=d.mock_code||'';
+        flash('验证码已发送（Mock：'+d.mock_code+'）');
+        var btn=document.getElementById('lgSms'),n=60;
+        btn.style.pointerEvents='none';
+        smsTimer=setInterval(function(){
+          n--;btn.textContent=n+'s';
+          if(n<=0){clearInterval(smsTimer);btn.textContent='获取验证码';btn.style.pointerEvents='';}
+        },1000);
+        btn.textContent=n+'s';
+      }).catch(function(e){flash(e.message);});
+    }
+    function doLogin(type){
+      var payload={type:type};
+      if(type==='phone'){
+        payload.phone=document.getElementById('lgPhone').value.trim();
+        payload.code=document.getElementById('lgCode').value.trim();
+      }else{
+        // 会员一键体验：用预置手机号 + 验证码
+        payload.phone='13800000000';payload.code='1234';
+      }
+      apiPost('/auth/login',payload).then(function(d){
+        TOKEN=d.access_token||'';
+        flash('登录成功'+(TOKEN==='member-token'?' · 会员已解锁':''));
+        closeLogin();
+        loadMe();loadHome();loadReports();
+        document.querySelectorAll('.phone[data-module]').forEach(loadChannel);
+      }).catch(function(e){flash(e.message);});
+    }
+    function doLogout(){
+      TOKEN='';
+      flash('已退出登录');
+      closeLogin();
+      loadMe();loadHome();loadReports();
+      document.querySelectorAll('.phone[data-module]').forEach(loadChannel);
+    }
+
     // 菜单入口绑定
     document.getElementById('meFav').addEventListener('click',openFav);
     document.getElementById('meHistory').addEventListener('click',openHistory);
     document.getElementById('meSettings').addEventListener('click',openSettings);
+    document.getElementById('meReports').addEventListener('click',openMyReports);
+    document.getElementById('meLogin').addEventListener('click',openLogin);
 
     // ====== 启动：拉取数据 ======
     loadHome();
     loadMe();
+    loadReports();
     document.querySelectorAll('.phone[data-module]').forEach(loadChannel);
   </script>
 </body>

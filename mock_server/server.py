@@ -236,6 +236,46 @@ PLANS = [
      "store_product_id": "com.redu.member.year"},
 ]
 
+# 内存态：付费报告。member_free=True 表示会员免费，否则会员 8 折
+REPORTS = [
+    {"id": "rpt_1", "title": "2026 AI 应用层投资地图", "module": "ai",
+     "pages": 62, "price": 299, "member_free": False,
+     "desc": "62 页 · 含 200+ 标的数据库",
+     "summary": "系统拆解 2026 年 AI 应用层的六大高增长方向，附 200+ 一二级标的数据库与估值对标。",
+     "toc": ["应用层投资主线与时间窗口", "Agent / 多模态 / 垂直工作流三大赛道",
+             "200+ 标的数据库与估值对标", "退出路径与风险提示"]},
+    {"id": "rpt_2", "title": "一级市场融资月报 · 5 月", "module": "finance",
+     "pages": 38, "price": 99, "member_free": True,
+     "desc": "38 页 · 赛道热度与估值追踪",
+     "summary": "5 月一级市场融资全景：按赛道统计金额、轮次分布与头部机构出手，附热度榜与估值变化。",
+     "toc": ["5 月融资总览与同比", "热门赛道与代表案例", "活跃机构出手统计",
+             "估值区间与下月展望"]},
+    {"id": "rpt_3", "title": "宏观季度展望：利率与流动性", "module": "macro",
+     "pages": 45, "price": 199, "member_free": False,
+     "desc": "45 页 · 含数据看板访问权",
+     "summary": "围绕利率路径与全球流动性，给出未来一季度宏观情景假设、资产配置含义与关键数据日历。",
+     "toc": ["利率路径的三种情景", "全球流动性与汇率", "大类资产配置含义",
+             "关键数据与事件日历"]},
+]
+REPORTS_BY_ID = {r["id"]: r for r in REPORTS}
+
+# 内存态：已购报告（按 token 区分），预置 guest 已购 2 份
+PURCHASED_REPORTS = {
+    "guest": ["rpt_2", "rpt_3"],
+}
+
+
+def report_card(r, owned):
+    """报告列表/详情共用的卡片视图，附 owned 与会员价。"""
+    member_price = 0 if r["member_free"] else round(r["price"] * 0.8)
+    return {
+        "id": r["id"], "title": r["title"], "module": r["module"],
+        "pages": r["pages"], "price": r["price"], "desc": r["desc"],
+        "member_free": r["member_free"], "member_price": member_price,
+        "owned": owned,
+    }
+
+
 MARKET_TICKER = [
     {"name": "上证指数", "value": "3,210.5", "change_pct": -0.62, "direction": "down"},
     {"name": "纳斯达克", "value": "17,890", "change_pct": 1.21, "direction": "up"},
@@ -401,6 +441,33 @@ class Handler(BaseHTTPRequestHandler):
                                "has_more": start + size < len(items)},
             })
 
+        # 搜索：按标题/摘要/why_matters 关键词命中，支持模块筛选
+        if path == "/v1/search":
+            kw = (q.get("q", [""])[0]).strip()
+            scope = q.get("scope", ["all"])[0]
+            page = int(q.get("page", ["1"])[0]); size = int(q.get("size", ["20"])[0])
+            if not kw:
+                return self._send({"keyword": "", "scope": scope, "items": [],
+                                   "pagination": {"page": page, "size": size,
+                                                  "total": 0, "has_more": False}})
+            pool = published(EVENTS) if scope in ("all", "") \
+                else published([e for e in EVENTS if e["module"] == scope])
+            low = kw.lower()
+
+            def hit(e):
+                hay = (e["title"] + " " + " ".join(e["summary"]) + " "
+                       + e.get("why_matters", "")).lower()
+                return low in hay
+            matched = [e for e in pool if hit(e)]
+            start = (page - 1) * size
+            paged = matched[start:start + size]
+            return self._send({
+                "keyword": kw, "scope": scope, "total_count": len(matched),
+                "items": [to_card(e) for e in paged],
+                "pagination": {"page": page, "size": size, "total": len(matched),
+                               "has_more": start + size < len(matched)},
+            })
+
         # 热榜
         if path == "/v1/ranking":
             scope = q.get("scope", ["global"])[0]
@@ -441,10 +508,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/v1/me":
             favs = FAVORITES.get(token, [])
             hist = HISTORY.get(token, [])
+            reports = PURCHASED_REPORTS.get(token, [])
             return self._send({"id": "u_001", "nickname": "投资人A", "avatar": "",
                                "membership": {"tier": tier, "expire_at":
                                               "2027-06-08T00:00:00Z" if is_member else None},
-                               "stats": {"favorites": len(favs), "history": len(hist)}})
+                               "stats": {"favorites": len(favs), "history": len(hist),
+                                         "reports": len(reports)}})
         if path == "/v1/me/favorites":
             ids = FAVORITES.get(token, [])
             return self._send({"items": [to_card(EVENTS_BY_ID[i]) for i in ids
@@ -464,6 +533,31 @@ class Handler(BaseHTTPRequestHandler):
         # 会员套餐
         if path == "/v1/membership/plans":
             return self._send({"plans": PLANS})
+
+        # 报告：列表
+        if path == "/v1/reports":
+            owned_ids = PURCHASED_REPORTS.get(token, [])
+            return self._send({"items": [report_card(r, r["id"] in owned_ids)
+                                         for r in REPORTS], "is_member": is_member})
+
+        # 报告：我的已购
+        if path == "/v1/reports/mine":
+            owned_ids = PURCHASED_REPORTS.get(token, [])
+            items = [report_card(REPORTS_BY_ID[i], True) for i in owned_ids
+                     if i in REPORTS_BY_ID]
+            return self._send({"items": items})
+
+        # 报告：详情
+        m = re.match(r"^/v1/reports/(rpt_\w+)$", path)
+        if m:
+            r = REPORTS_BY_ID.get(m.group(1))
+            if not r:
+                return self._send(None, code=1003, http_status=404, message="报告不存在")
+            owned = r["id"] in PURCHASED_REPORTS.get(token, [])
+            card = report_card(r, owned)
+            card["summary"] = r["summary"]
+            card["toc"] = r["toc"]
+            return self._send(card)
 
         # ---- CMS ----
         if path == "/v1/admin/events":
@@ -643,15 +737,31 @@ class Handler(BaseHTTPRequestHandler):
         # 登录
         if path == "/v1/auth/login":
             login_type = body.get("type", "phone")
-            # Mock：phone 默认返回 free，可用 type=member 模拟会员登录
-            member = body.get("type") == "member"
+            # Mock：phone+验证码 默认返回 free，可用 type=member 模拟会员登录
+            member = login_type == "member"
+            phone = str(body.get("phone", "")).strip()
+            code = str(body.get("code", "")).strip()
+            if login_type == "phone":
+                if not re.match(r"^1\d{10}$", phone):
+                    return self._send(None, code=1002, http_status=400, message="手机号格式不正确")
+                if code != "1234":
+                    return self._send(None, code=1002, http_status=400, message="验证码错误（Mock 验证码为 1234）")
+            nick = ("用户" + phone[-4:]) if phone else "投资人A"
             return self._send({
                 "access_token": "member-token" if member else "free-token",
                 "refresh_token": "refresh-xyz", "expires_in": 7200,
-                "user": {"id": "u_001", "nickname": "投资人A", "avatar": "",
+                "user": {"id": "u_001", "nickname": nick, "avatar": "", "phone": phone,
                          "membership": {"tier": "member" if member else "free",
                                         "expire_at": None}},
             })
+
+        # 发送验证码（Mock：固定 1234）
+        if path == "/v1/auth/sms":
+            phone = str(body.get("phone", "")).strip()
+            if not re.match(r"^1\d{10}$", phone):
+                return self._send(None, code=1002, http_status=400, message="手机号格式不正确")
+            return self._send({"sent": True, "mock_code": "1234", "expires_in": 300})
+
 
         if path == "/v1/auth/refresh":
             return self._send({"access_token": token or "free-token", "expires_in": 7200})
@@ -698,6 +808,20 @@ class Handler(BaseHTTPRequestHandler):
             return self._send({"status": "success",
                                "membership": {"tier": "member",
                                               "expire_at": "2027-06-08T00:00:00Z"}})
+
+        # 报告：购买（Mock 直接入库已购）
+        m = re.match(r"^/v1/reports/(rpt_\w+)/purchase$", path)
+        if m:
+            r = REPORTS_BY_ID.get(m.group(1))
+            if not r:
+                return self._send(None, code=1003, http_status=404, message="报告不存在")
+            owned = PURCHASED_REPORTS.setdefault(token, [])
+            if r["id"] not in owned:
+                owned.append(r["id"])
+            amount = 0 if (r["member_free"] and is_member) \
+                else (round(r["price"] * 0.8) if is_member else r["price"])
+            return self._send({"order_id": "rord_" + uuid.uuid4().hex[:8],
+                               "report_id": r["id"], "amount": amount, "owned": True})
 
         # CMS 审核动作：真实变更内存态
         m = re.match(r"^/v1/admin/events/(evt_\d+)/(approve|reject|publish|pin|unpin|push)$", path)
@@ -995,14 +1119,17 @@ ENDPOINT_LIST = [
     "GET  /v1/home/briefing",
     "GET  /v1/channels/{tech|finance|ai|macro}",
     "GET  /v1/ranking?scope=global|tech|finance|ai|macro",
+    "GET  /v1/search?q=&scope=all|tech|finance|ai|macro&page=&size=",
     "GET  /v1/events/{id}",
     "GET  /v1/events/{id}/related",
     "POST /v1/events/{id}/favorite",
     "GET  /v1/me  /v1/me/favorites  /v1/me/history  /v1/me/settings",
     "POST /v1/me/settings   /v1/me/history/clear",
-    "POST /v1/auth/login (type=phone|member)",
+    "POST /v1/auth/sms (phone)   /v1/auth/login (type=phone|member, phone, code=1234)",
     "GET  /v1/membership/plans",
     "POST /v1/membership/orders  /v1/membership/verify",
+    "GET  /v1/reports  /v1/reports/mine  /v1/reports/{id}",
+    "POST /v1/reports/{id}/purchase",
     "GET  /v1/admin/events?status=&module=&q=  /v1/admin/sources  /v1/admin/stats/{pipeline|business}",
     "POST /v1/admin/events/{id}/{approve|reject|publish|pin|unpin|push}",
     "POST /v1/admin/events/{id}/edit   /v1/admin/events/merge",
