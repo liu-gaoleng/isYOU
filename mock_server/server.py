@@ -32,6 +32,14 @@ from urllib.parse import urlparse, parse_qs
 def _now():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+
+def _host(url):
+    """提取 URL 主机名（去 www. 前缀），用于信源去重比对。"""
+    if not url:
+        return ""
+    h = urlparse(url if "://" in url else "http://" + url).netloc.lower()
+    return h[4:] if h.startswith("www.") else h
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "..", "pipeline_demo", "output.json")
 
@@ -92,7 +100,23 @@ EVENTS = load_events()
 EVENTS_BY_ID = {e["event_id"]: e for e in EVENTS}
 
 # 内存态：用户收藏（按 token 区分）
-FAVORITES = {}
+FAVORITES = {
+    "guest": ["evt_1001", "evt_1003", "evt_1006"],
+}
+
+# 内存态：阅读历史（按 token 区分，最近在前；进入事件详情时写入）
+HISTORY = {
+    "guest": [
+        {"event_id": "evt_1002", "viewed_at": "2026-06-09T21:12:00Z"},
+        {"event_id": "evt_1004", "viewed_at": "2026-06-09T20:40:00Z"},
+        {"event_id": "evt_1001", "viewed_at": "2026-06-09T08:15:00Z"},
+    ],
+}
+
+# 内存态：推送设置（按 token 区分）
+DEFAULT_PUSH_SETTINGS = {"daily_push": True, "push_time": "08:00",
+                         "breaking_push": False}
+PUSH_SETTINGS = {}
 
 # 内存态：推送历史（审核页「推送」动作写入，供推送运营查看）
 # 预置几条历史，带触达/打开指标，便于推送运营页演示
@@ -131,6 +155,76 @@ SOURCES = [
      "url": "https://wallstreetcn.com", "enabled": True},
     {"id": "s_3", "name": "Reuters", "level": "S", "weight": 1.0,
      "url": "https://reuters.com", "enabled": True},
+]
+
+# ----------------------------------------------------------------------------
+# 后台 RBAC：角色权限矩阵 + 运营成员
+# 权限级别：none（不可见）/ read（只读）/ write（可写）
+# 页面 key 与前端 data-page 对应：overview/business/review/push/sources/members
+# ----------------------------------------------------------------------------
+ROLE_PAGES = ["overview", "business", "review", "push", "sources", "members", "users"]
+ROLE_PERMS = {
+    "admin": {"name": "超级管理员",
+              "perms": {"overview": "write", "business": "write", "review": "write",
+                        "push": "write", "sources": "write", "members": "write",
+                        "users": "write"}},
+    "auditor": {"name": "审核员",
+                "perms": {"overview": "write", "business": "read", "review": "write",
+                          "push": "write", "sources": "read", "members": "none",
+                          "users": "read"}},
+    "operator": {"name": "运营",
+                 "perms": {"overview": "write", "business": "write", "review": "read",
+                           "push": "write", "sources": "write", "members": "none",
+                           "users": "write"}},
+    "viewer": {"name": "只读访客",
+               "perms": {"overview": "read", "business": "read", "review": "read",
+                         "push": "read", "sources": "read", "members": "none",
+                         "users": "read"}},
+}
+
+ADMIN_USERS = [
+    {"id": "u_1", "name": "陈管理", "role": "admin", "enabled": True,
+     "created_at": "2026-05-01T08:00:00Z"},
+    {"id": "u_2", "name": "李审核", "role": "auditor", "enabled": True,
+     "created_at": "2026-05-12T08:00:00Z"},
+    {"id": "u_3", "name": "王运营", "role": "operator", "enabled": True,
+     "created_at": "2026-05-20T08:00:00Z"},
+    {"id": "u_4", "name": "访客demo", "role": "viewer", "enabled": False,
+     "created_at": "2026-06-01T08:00:00Z"},
+]
+
+# ----------------------------------------------------------------------------
+# C 端用户运营：App 注册 / 付费用户
+# tier: free / member；status: active / banned
+# ----------------------------------------------------------------------------
+APP_USERS = [
+    {"id": "au_1", "phone": "138****8001", "nick": "投资老张", "tier": "member",
+     "status": "active", "registered_at": "2026-03-02T10:00:00Z",
+     "member_expire": "2027-03-02", "total_paid": 298,
+     "orders": [{"order_id": "o_1001", "plan": "会员年卡", "amount": 298,
+                 "paid_at": "2026-03-02T10:05:00Z"}]},
+    {"id": "au_2", "phone": "139****2046", "nick": "AI产品李", "tier": "member",
+     "status": "active", "registered_at": "2026-04-11T09:30:00Z",
+     "member_expire": "2026-07-11", "total_paid": 90,
+     "orders": [{"order_id": "o_1002", "plan": "会员月卡", "amount": 30,
+                 "paid_at": "2026-04-11T09:32:00Z"},
+                {"order_id": "o_1003", "plan": "会员月卡", "amount": 30,
+                 "paid_at": "2026-05-11T09:32:00Z"},
+                {"order_id": "o_1004", "plan": "会员月卡", "amount": 30,
+                 "paid_at": "2026-06-11T09:32:00Z"}]},
+    {"id": "au_3", "phone": "137****5588", "nick": "创业者王", "tier": "free",
+     "status": "active", "registered_at": "2026-05-20T14:00:00Z",
+     "member_expire": "", "total_paid": 0, "orders": []},
+    {"id": "au_4", "phone": "150****3322", "nick": "羊毛党", "tier": "free",
+     "status": "banned", "registered_at": "2026-05-28T22:10:00Z",
+     "member_expire": "", "total_paid": 0, "orders": []},
+    {"id": "au_5", "phone": "186****7799", "nick": "宏观研究员", "tier": "member",
+     "status": "active", "registered_at": "2026-02-15T08:00:00Z",
+     "member_expire": "2026-06-15", "total_paid": 328,
+     "orders": [{"order_id": "o_1005", "plan": "会员年卡", "amount": 298,
+                 "paid_at": "2026-02-15T08:05:00Z"},
+                {"order_id": "o_1006", "plan": "会员月卡", "amount": 30,
+                 "paid_at": "2026-02-15T08:06:00Z"}]},
 ]
 
 # 会员套餐
@@ -272,12 +366,21 @@ class Handler(BaseHTTPRequestHandler):
             pub = published(EVENTS)
             top = pub[0] if pub else None
             hot = [to_rank_item(e, i + 1, *trend_for(i + 1)) for i, e in enumerate(pub[:10])]
+            # 四模块均衡配额：按模块分组后轮询交错，保证每个赛道都有露出
+            buckets = {mod: [e for e in pub if e["module"] == mod]
+                       for mod in MODULE_EN2CN}
+            feed_events, i = [], 0
+            while len(feed_events) < 20 and any(i < len(b) for b in buckets.values()):
+                for mod in MODULE_EN2CN:
+                    if i < len(buckets[mod]):
+                        feed_events.append(buckets[mod][i])
+                i += 1
             return self._send({
                 "date": "2026-06-08", "slogan": SLOGAN, "total_count": len(pub),
                 "market_ticker": MARKET_TICKER,
                 "top_headline": (to_card(top) | {"rank": 1}) if top else None,
                 "hot_list": hot,
-                "feed": [to_card(e) for e in pub[:20]],
+                "feed": [to_card(e) for e in feed_events[:20]],
             })
 
         # 频道页
@@ -311,11 +414,17 @@ class Handler(BaseHTTPRequestHandler):
         # 事件详情
         m = re.match(r"^/v1/events/(evt_\d+)$", path)
         if m:
-            e = EVENTS_BY_ID.get(m.group(1))
+            eid = m.group(1)
+            e = EVENTS_BY_ID.get(eid)
             if not e:
                 return self._send(None, code=1003, http_status=404, message="事件不存在")
             detail = to_detail(e, is_member)
-            detail["user_state"] = {"is_favorited": m.group(1) in FAVORITES.get(token, set())}
+            detail["user_state"] = {"is_favorited": eid in FAVORITES.get(token, [])}
+            # 记录阅读历史（去重后置顶，最多保留 50 条）
+            hist = HISTORY.setdefault(token, [])
+            hist[:] = [h for h in hist if h["event_id"] != eid]
+            hist.insert(0, {"event_id": eid, "viewed_at": _now()})
+            del hist[50:]
             return self._send(detail)
 
         # 相关推荐
@@ -330,13 +439,27 @@ class Handler(BaseHTTPRequestHandler):
 
         # 我的
         if path == "/v1/me":
+            favs = FAVORITES.get(token, [])
+            hist = HISTORY.get(token, [])
             return self._send({"id": "u_001", "nickname": "投资人A", "avatar": "",
                                "membership": {"tier": tier, "expire_at":
-                                              "2027-06-08T00:00:00Z" if is_member else None}})
+                                              "2027-06-08T00:00:00Z" if is_member else None},
+                               "stats": {"favorites": len(favs), "history": len(hist)}})
         if path == "/v1/me/favorites":
-            ids = FAVORITES.get(token, set())
+            ids = FAVORITES.get(token, [])
             return self._send({"items": [to_card(EVENTS_BY_ID[i]) for i in ids
                                          if i in EVENTS_BY_ID]})
+        if path == "/v1/me/history":
+            items = []
+            for h in HISTORY.get(token, []):
+                e = EVENTS_BY_ID.get(h["event_id"])
+                if e:
+                    card = to_card(e)
+                    card["viewed_at"] = h["viewed_at"]
+                    items.append(card)
+            return self._send({"items": items})
+        if path == "/v1/me/settings":
+            return self._send(dict(PUSH_SETTINGS.get(token, DEFAULT_PUSH_SETTINGS)))
 
         # 会员套餐
         if path == "/v1/membership/plans":
@@ -374,6 +497,78 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/v1/admin/sources":
             return self._send({"items": list(SOURCES)})
+
+        # RBAC：角色权限矩阵（供前端渲染权限表与按角色控制 UI）
+        if path == "/v1/admin/roles":
+            return self._send({
+                "pages": ROLE_PAGES,
+                "page_names": {"overview": "运营概览", "business": "运营数据",
+                               "review": "内容审核", "push": "推送运营",
+                               "sources": "信源管理", "members": "成员权限",
+                               "users": "用户运营"},
+                "roles": [dict(code=k, **v) for k, v in ROLE_PERMS.items()],
+            })
+
+        # RBAC：运营成员列表
+        if path == "/v1/admin/members":
+            items = [dict(m, role_name=ROLE_PERMS.get(m["role"], {}).get("name", m["role"]))
+                     for m in ADMIN_USERS]
+            return self._send({"items": items})
+
+        # C 端用户运营：用户列表 + 筛选 + summary
+        if path == "/v1/admin/users":
+            f_tier = (q.get("tier") or [""])[0]
+            f_status = (q.get("status") or [""])[0]
+            kw = (q.get("q") or [""])[0].strip()
+            rows = APP_USERS
+            if f_tier:
+                rows = [u for u in rows if u["tier"] == f_tier]
+            if f_status:
+                rows = [u for u in rows if u["status"] == f_status]
+            if kw:
+                rows = [u for u in rows if kw in u["phone"] or kw in u["nick"]]
+            items = [{k: u[k] for k in ("id", "phone", "nick", "tier", "status",
+                                        "registered_at", "member_expire", "total_paid")}
+                     for u in rows]
+            summary = {
+                "total": len(APP_USERS),
+                "member": len([u for u in APP_USERS if u["tier"] == "member"]),
+                "banned": len([u for u in APP_USERS if u["status"] == "banned"]),
+                "revenue": sum(u["total_paid"] for u in APP_USERS),
+            }
+            return self._send({"items": items, "summary": summary})
+
+        # C 端用户运营：用户详情（含付费记录）
+        m = re.match(r"^/v1/admin/users/(au_\w+)$", path)
+        if m:
+            user = next((u for u in APP_USERS if u["id"] == m.group(1)), None)
+            if not user:
+                return self._send(None, code=1003, http_status=404,
+                                  message="用户不存在")
+            return self._send(dict(user))
+
+        # 信源智能推荐：从事件 sources 中统计未入库信源，按出现频次降序
+        if path == "/v1/admin/sources/suggest":
+            known = {s["name"] for s in SOURCES}
+            known_urls = {_host(s.get("url", "")) for s in SOURCES if s.get("url")}
+            agg = {}
+            for ev in EVENTS:
+                for src in ev.get("sources", []):
+                    name = (src.get("name") or "").strip()
+                    if not name or name in known:
+                        continue
+                    host = _host(src.get("url", ""))
+                    if host and host in known_urls:
+                        continue
+                    item = agg.setdefault(name, {
+                        "name": name, "level": src.get("level", "B"),
+                        "url": "https://" + host if host else "",
+                        "count": 0,
+                    })
+                    item["count"] += 1
+            suggestions = sorted(agg.values(),
+                                 key=lambda x: x["count"], reverse=True)
+            return self._send({"items": suggestions})
 
         if path == "/v1/admin/stats/pipeline":
             return self._send({"collected": 80, "dedup_removed": 2, "events": len(EVENTS),
@@ -465,12 +660,31 @@ class Handler(BaseHTTPRequestHandler):
         m = re.match(r"^/v1/events/(evt_\d+)/favorite$", path)
         if m:
             eid = m.group(1)
-            fav = FAVORITES.setdefault(token, set())
+            fav = FAVORITES.setdefault(token, [])
             if body.get("action") == "remove":
-                fav.discard(eid)
+                if eid in fav:
+                    fav.remove(eid)
                 return self._send({"is_favorited": False})
-            fav.add(eid)
+            if eid not in fav:
+                fav.insert(0, eid)
             return self._send({"is_favorited": True})
+
+        # 推送设置：更新
+        if path == "/v1/me/settings":
+            cur = dict(PUSH_SETTINGS.get(token, DEFAULT_PUSH_SETTINGS))
+            if "daily_push" in body:
+                cur["daily_push"] = bool(body["daily_push"])
+            if "breaking_push" in body:
+                cur["breaking_push"] = bool(body["breaking_push"])
+            if body.get("push_time"):
+                cur["push_time"] = str(body["push_time"])
+            PUSH_SETTINGS[token] = cur
+            return self._send(cur)
+
+        # 阅读历史：清空
+        if path == "/v1/me/history/clear":
+            HISTORY[token] = []
+            return self._send({"cleared": True})
 
         # 下单
         if path == "/v1/membership/orders":
@@ -604,6 +818,134 @@ class Handler(BaseHTTPRequestHandler):
             SOURCES.append(rec)
             return self._send(rec)
 
+        # 信源管理：批量导入（粘贴多行，每行「名称,网址,分级」）
+        if path == "/v1/admin/sources/import":
+            rows = body.get("rows") or []
+            added, skipped = [], []
+            known_names = {s["name"] for s in SOURCES}
+            known_hosts = {_host(s.get("url", "")) for s in SOURCES if s.get("url")}
+            for row in rows:
+                name = (row.get("name") or "").strip()
+                if not name:
+                    continue
+                url = (row.get("url") or "").strip()
+                host = _host(url)
+                level = row.get("level", "B")
+                if level not in SOURCE_WEIGHT:
+                    level = "B"
+                # 去重：同名或同主机视为已存在
+                if name in known_names or (host and host in known_hosts):
+                    skipped.append({"name": name, "reason": "已存在"})
+                    continue
+                rec = {
+                    "id": "s_" + uuid.uuid4().hex[:8], "name": name,
+                    "level": level, "weight": SOURCE_WEIGHT[level],
+                    "url": url, "enabled": True,
+                }
+                SOURCES.append(rec)
+                added.append(rec)
+                known_names.add(name)
+                if host:
+                    known_hosts.add(host)
+            return self._send({
+                "added": added, "skipped": skipped,
+                "added_count": len(added), "skipped_count": len(skipped),
+            })
+
+        # 信源管理：重复检测（按主机名分组，找出重复信源）
+        if path == "/v1/admin/sources/dedup-scan":
+            by_host = {}
+            for s in SOURCES:
+                host = _host(s.get("url", ""))
+                if not host:
+                    continue
+                by_host.setdefault(host, []).append(s)
+            groups = [{"host": h, "items": items}
+                      for h, items in by_host.items() if len(items) > 1]
+            return self._send({"groups": groups, "group_count": len(groups)})
+
+        # RBAC：新增成员
+        if path == "/v1/admin/members":
+            name = (body.get("name") or "").strip()
+            if not name:
+                return self._send(None, code=1002, http_status=400,
+                                  message="成员名称不能为空")
+            role = body.get("role", "viewer")
+            if role not in ROLE_PERMS:
+                return self._send(None, code=1002, http_status=400,
+                                  message="角色不存在")
+            rec = {
+                "id": "u_" + uuid.uuid4().hex[:8], "name": name, "role": role,
+                "enabled": bool(body.get("enabled", True)), "created_at": _now(),
+            }
+            ADMIN_USERS.append(rec)
+            return self._send(dict(rec, role_name=ROLE_PERMS[role]["name"]))
+
+        # RBAC：编辑成员（改角色 / 启停 / 改名）
+        m = re.match(r"^/v1/admin/members/(u_\w+)$", path)
+        if m:
+            user = next((u for u in ADMIN_USERS if u["id"] == m.group(1)), None)
+            if not user:
+                return self._send(None, code=1003, http_status=404,
+                                  message="成员不存在")
+            if "name" in body:
+                user["name"] = (body["name"] or "").strip() or user["name"]
+            if "role" in body and body["role"] in ROLE_PERMS:
+                user["role"] = body["role"]
+            if "enabled" in body:
+                user["enabled"] = bool(body["enabled"])
+            return self._send(dict(user, role_name=ROLE_PERMS[user["role"]]["name"]))
+
+        # RBAC：删除成员
+        m = re.match(r"^/v1/admin/members/(u_\w+)/delete$", path)
+        if m:
+            target = m.group(1)
+            admins = [u for u in ADMIN_USERS if u["role"] == "admin" and u["enabled"]]
+            victim = next((u for u in ADMIN_USERS if u["id"] == target), None)
+            if not victim:
+                return self._send(None, code=1003, http_status=404,
+                                  message="成员不存在")
+            # 防呆：不允许删除最后一个启用的超级管理员
+            if victim["role"] == "admin" and victim["enabled"] and len(admins) <= 1:
+                return self._send(None, code=1002, http_status=400,
+                                  message="至少保留一个超级管理员")
+            ADMIN_USERS[:] = [u for u in ADMIN_USERS if u["id"] != target]
+            return self._send({"id": target, "deleted": True})
+
+        # C 端用户运营：人工操作（封禁/解禁、调档、延长会员）
+        m = re.match(r"^/v1/admin/users/(au_\w+)$", path)
+        if m:
+            user = next((u for u in APP_USERS if u["id"] == m.group(1)), None)
+            if not user:
+                return self._send(None, code=1003, http_status=404,
+                                  message="用户不存在")
+            action = body.get("action", "")
+            if action == "ban":
+                user["status"] = "banned"
+            elif action == "unban":
+                user["status"] = "active"
+            elif action == "set_tier":
+                new_tier = body.get("tier")
+                if new_tier in ("free", "member"):
+                    user["tier"] = new_tier
+                    if new_tier == "free":
+                        user["member_expire"] = ""
+            elif action == "extend":
+                # 延长会员 N 天（基于现有到期日或今天起算）
+                days = int(body.get("days", 30))
+                base = user.get("member_expire") or _now()[:10]
+                try:
+                    dt = datetime.strptime(base, "%Y-%m-%d")
+                except ValueError:
+                    dt = datetime.now(timezone.utc)
+                from datetime import timedelta
+                user["member_expire"] = (dt + timedelta(days=days)).strftime("%Y-%m-%d")
+                user["tier"] = "member"
+            else:
+                return self._send(None, code=1002, http_status=400,
+                                  message="未知操作")
+            return self._send(dict(user))
+
         # 信源管理：编辑 / 调权重 / 启停
         m = re.match(r"^/v1/admin/sources/(s_\w+)$", path)
         if m:
@@ -656,7 +998,8 @@ ENDPOINT_LIST = [
     "GET  /v1/events/{id}",
     "GET  /v1/events/{id}/related",
     "POST /v1/events/{id}/favorite",
-    "GET  /v1/me  /v1/me/favorites",
+    "GET  /v1/me  /v1/me/favorites  /v1/me/history  /v1/me/settings",
+    "POST /v1/me/settings   /v1/me/history/clear",
     "POST /v1/auth/login (type=phone|member)",
     "GET  /v1/membership/plans",
     "POST /v1/membership/orders  /v1/membership/verify",
@@ -665,7 +1008,13 @@ ENDPOINT_LIST = [
     "POST /v1/admin/events/{id}/edit   /v1/admin/events/merge",
     "GET  /v1/admin/push/history   /v1/admin/push/digest",
     "POST /v1/admin/push/digest   /v1/admin/push/digest/send",
+    "GET  /v1/admin/sources/suggest",
     "POST /v1/admin/sources   /v1/admin/sources/{id}   /v1/admin/sources/{id}/delete",
+    "POST /v1/admin/sources/import   /v1/admin/sources/dedup-scan",
+    "GET  /v1/admin/roles   /v1/admin/members",
+    "POST /v1/admin/members   /v1/admin/members/{id}   /v1/admin/members/{id}/delete",
+    "GET  /v1/admin/users?tier=&status=&q=   /v1/admin/users/{id}",
+    "POST /v1/admin/users/{id} (action=ban|unban|set_tier|extend)",
 ]
 
 

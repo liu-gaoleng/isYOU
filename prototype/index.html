@@ -197,6 +197,25 @@
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:100;padding:20px;}
   .modal.show{display:flex;}
   .modal .phone{box-shadow:0 30px 80px rgba(0,0,0,.6);}
+
+  /* —— 我的二级页 —— */
+  .navbar .me-act{margin-left:auto;font-size:12px;color:var(--accent);cursor:pointer;}
+  .me-empty{text-align:center;color:var(--ink-3);font-size:13px;padding:60px 20px;}
+  .me-item{padding:13px 4px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .me-item .it{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.45;}
+  .me-item .im{margin-top:5px;font-size:11px;color:var(--ink-3);display:flex;gap:8px;align-items:center;}
+  .me-item .chip{font-size:9.5px;color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:999px;}
+  .me-item .del{margin-left:auto;color:var(--ink-3);}
+  .me-item .del:hover{color:var(--up);}
+  .me-set{display:flex;align-items:center;padding:15px 4px;border-bottom:1px solid var(--line);}
+  .me-set .lb{font-size:13.5px;color:var(--ink);font-weight:600;}
+  .me-set .ds{font-size:11px;color:var(--ink-3);margin-top:3px;}
+  .me-sw{margin-left:auto;width:42px;height:24px;border-radius:999px;background:var(--card-2);border:1px solid var(--line);position:relative;cursor:pointer;transition:.18s;flex-shrink:0;}
+  .me-sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--ink-3);transition:.18s;}
+  .me-sw.on{background:var(--accent-soft);border-color:rgba(243,177,59,.5);}
+  .me-sw.on::after{left:21px;background:var(--accent);}
+  .me-time{margin-left:auto;font-size:13px;color:var(--accent);font-family:var(--mono);background:var(--card-2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer;}
+
 </style>
 </head>
 <body>
@@ -568,8 +587,8 @@
             <div style="display:flex;align-items:center;gap:14px">
               <div class="avatar">读</div>
               <div>
-                <div style="font-size:17px;font-weight:800">读者 · 浩然</div>
-                <div style="font-size:12px;color:var(--ink-3);margin-top:2px">免费用户 · 已读 128 条</div>
+                <div style="font-size:17px;font-weight:800" id="meNick">读者 · 浩然</div>
+                <div style="font-size:12px;color:var(--ink-3);margin-top:2px" id="meTier">免费用户 · 已读 128 条</div>
               </div>
             </div>
             <div class="vipcard">
@@ -579,10 +598,10 @@
               <div class="go">立即开通</div>
             </div>
             <div class="menu">
-              <div class="m">我的收藏<span class="r">36 ›</span></div>
-              <div class="m">阅读历史<span class="r">›</span></div>
+              <div class="m" id="meFav">我的收藏<span class="r" id="meFavCount">›</span></div>
+              <div class="m" id="meHistory">阅读历史<span class="r">›</span></div>
               <div class="m">我购买的报告<span class="r">2 ›</span></div>
-              <div class="m">推送设置<span class="r">早 8:00 ›</span></div>
+              <div class="m" id="meSettings">推送设置<span class="r" id="mePushTime">早 8:00 ›</span></div>
               <div class="m">关于热读<span class="r">›</span></div>
             </div>
           </div>
@@ -632,6 +651,16 @@
     </div>
   </div>
 
+  <!-- 我的二级页弹层（收藏 / 历史 / 推送设置共用） -->
+  <div class="modal" id="meModal" onclick="if(event.target===this)closeMe()">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span></span></div>
+      <div class="navbar"><span class="back" onclick="closeMe()">‹</span><span class="nt" id="meTitle">我的收藏</span><span class="me-act" id="meAct"></span></div>
+      <div class="scroll"><div class="pad" id="meBody"></div></div>
+    </div>
+  </div>
+
   <script>
     // ====== 接入 Mock 后端 ======
     var API='http://localhost:8000/v1';
@@ -643,6 +672,17 @@
       var h={};
       if(TOKEN) h['Authorization']='Bearer '+TOKEN;
       return fetch(API+path,{headers:h}).then(function(r){
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        return r.json();
+      }).then(function(j){
+        if(j.code!==0) throw new Error(j.message||'err');
+        return j.data;
+      });
+    }
+    function apiPost(path,body){
+      var h={'Content-Type':'application/json'};
+      if(TOKEN) h['Authorization']='Bearer '+TOKEN;
+      return fetch(API+path,{method:'POST',headers:h,body:JSON.stringify(body||{})}).then(function(r){
         if(!r.ok) throw new Error('HTTP '+r.status);
         return r.json();
       }).then(function(j){
@@ -845,8 +885,127 @@
       setTimeout(function(){d.style.opacity='0';setTimeout(function(){d.remove();},400);},2200);
     }
 
+    // ====== 我的：个人信息 + 收藏 / 历史 / 推送设置 ======
+    var meModal=document.getElementById('meModal');
+    function closeMe(){meModal.classList.remove('show');}
+    function moduleChip(m){return '<span class="chip">'+(MODULE_CN[m]||'热点')+'</span>';}
+    function timeShort(iso){return (iso||'').replace('T',' ').replace('Z','').slice(5,16);}
+
+    // 个人信息 + 菜单计数
+    function loadMe(){
+      api('/me').then(function(d){
+        var st=d.stats||{};
+        var nick=document.getElementById('meNick');
+        var tier=document.getElementById('meTier');
+        if(nick) nick.textContent=d.nickname||'读者';
+        if(tier){
+          var isMember=d.membership&&d.membership.tier==='member';
+          tier.textContent=(isMember?'会员用户':'免费用户')+' · 已读 '+(st.history||0)+' 条';
+        }
+        var fc=document.getElementById('meFavCount');
+        if(fc) fc.textContent=(st.favorites||0)+' ›';
+      }).catch(function(e){console.warn('加载个人信息失败',e);});
+      api('/me/settings').then(function(s){
+        var t=document.getElementById('mePushTime');
+        if(t) t.textContent=(s.daily_push?('早 '+s.push_time):'已关闭')+' ›';
+      }).catch(function(){});
+    }
+
+    // 收藏列表
+    function openFav(){
+      document.getElementById('meTitle').textContent='我的收藏';
+      document.getElementById('meAct').textContent='';
+      var body=document.getElementById('meBody');
+      body.innerHTML='<div class="me-empty">加载中…</div>';
+      meModal.classList.add('show');
+      api('/me/favorites').then(function(d){
+        var items=d.items||[];
+        body.innerHTML=items.length?items.map(function(it){
+          return '<div class="me-item" data-eid="'+it.event_id+'">'+
+            '<div class="it">'+it.title+'</div>'+
+            '<div class="im">'+moduleChip(it.module)+'<span>'+(it.source_count||1)+' 源</span>'+
+            '<span class="del" data-act="del" data-eid="'+it.event_id+'">取消收藏</span></div></div>';
+        }).join(''):'<div class="me-empty">还没有收藏，去简报里收藏感兴趣的事件吧</div>';
+      }).catch(function(e){body.innerHTML='<div class="me-empty">加载失败：'+e.message+'</div>';});
+    }
+    // 阅读历史
+    function openHistory(){
+      document.getElementById('meTitle').textContent='阅读历史';
+      var act=document.getElementById('meAct');act.textContent='清空';
+      act.onclick=function(){
+        if(!confirm('确认清空全部阅读历史？'))return;
+        apiPost('/me/history/clear',{}).then(function(){flash('历史已清空');openHistory();loadMe();})
+          .catch(function(e){flash('清空失败：'+e.message);});
+      };
+      var body=document.getElementById('meBody');
+      body.innerHTML='<div class="me-empty">加载中…</div>';
+      meModal.classList.add('show');
+      api('/me/history').then(function(d){
+        var items=d.items||[];
+        body.innerHTML=items.length?items.map(function(it){
+          return '<div class="me-item" data-eid="'+it.event_id+'">'+
+            '<div class="it">'+it.title+'</div>'+
+            '<div class="im">'+moduleChip(it.module)+'<span>'+timeShort(it.viewed_at)+'</span></div></div>';
+        }).join(''):'<div class="me-empty">暂无阅读记录</div>';
+      }).catch(function(e){body.innerHTML='<div class="me-empty">加载失败：'+e.message+'</div>';});
+    }
+    // 推送设置
+    function openSettings(){
+      document.getElementById('meTitle').textContent='推送设置';
+      document.getElementById('meAct').textContent='';
+      var body=document.getElementById('meBody');
+      body.innerHTML='<div class="me-empty">加载中…</div>';
+      meModal.classList.add('show');
+      api('/me/settings').then(function(s){renderSettings(s);})
+        .catch(function(e){body.innerHTML='<div class="me-empty">加载失败：'+e.message+'</div>';});
+    }
+    function renderSettings(s){
+      var body=document.getElementById('meBody');
+      body.innerHTML=
+        '<div class="me-set"><div><div class="lb">每日早报推送</div><div class="ds">每天定时推送当日热点简报</div></div>'+
+          '<div class="me-sw'+(s.daily_push?' on':'')+'" data-k="daily_push"></div></div>'+
+        '<div class="me-set"><div><div class="lb">推送时间</div><div class="ds">早报到达时间</div></div>'+
+          '<div class="me-time" data-k="push_time">'+s.push_time+'</div></div>'+
+        '<div class="me-set"><div><div class="lb">突发事件推送</div><div class="ds">重大事件实时提醒</div></div>'+
+          '<div class="me-sw'+(s.breaking_push?' on':'')+'" data-k="breaking_push"></div></div>';
+    }
+    function saveSettings(patch){
+      apiPost('/me/settings',patch).then(function(s){renderSettings(s);loadMe();flash('设置已保存');})
+        .catch(function(e){flash('保存失败：'+e.message);});
+    }
+    // 二级页内交互（事件代理）
+    document.getElementById('meBody').addEventListener('click',function(e){
+      var del=e.target.closest('[data-act="del"]');
+      if(del){
+        e.stopPropagation();
+        apiPost('/events/'+del.getAttribute('data-eid')+'/favorite',{action:'remove'}).then(function(){
+          flash('已取消收藏');openFav();loadMe();
+        }).catch(function(x){flash('操作失败：'+x.message);});
+        return;
+      }
+      var sw=e.target.closest('.me-sw');
+      if(sw){
+        var k=sw.getAttribute('data-k');var patch={};patch[k]=!sw.classList.contains('on');
+        saveSettings(patch);return;
+      }
+      var tm=e.target.closest('.me-time');
+      if(tm){
+        var v=prompt('设置早报推送时间（HH:MM）',tm.textContent.trim());
+        if(v&&/^\d{1,2}:\d{2}$/.test(v)) saveSettings({push_time:v});
+        else if(v) flash('时间格式应为 HH:MM');
+        return;
+      }
+      var row=e.target.closest('.me-item[data-eid]');
+      if(row){closeMe();openEvent(null,null,null,row.getAttribute('data-eid'));}
+    });
+    // 菜单入口绑定
+    document.getElementById('meFav').addEventListener('click',openFav);
+    document.getElementById('meHistory').addEventListener('click',openHistory);
+    document.getElementById('meSettings').addEventListener('click',openSettings);
+
     // ====== 启动：拉取数据 ======
     loadHome();
+    loadMe();
     document.querySelectorAll('.phone[data-module]').forEach(loadChannel);
   </script>
 </body>

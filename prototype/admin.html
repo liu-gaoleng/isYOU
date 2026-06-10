@@ -146,6 +146,25 @@
   .src .sact button:hover{color:var(--ink);border-color:var(--ink-3);}
   .src .sact button.del:hover{color:var(--up);border-color:rgba(255,91,77,.4);}
   .src.off{opacity:.5;}
+  .dd-grp{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px;background:rgba(255,91,77,.04);}
+  .dd-host{font-size:11px;color:var(--up);font-weight:700;margin-bottom:8px;letter-spacing:.4px;}
+  /* —— 成员权限 RBAC —— */
+  .role-sel{background:var(--card-2);border:1px solid var(--line);color:var(--accent);font-family:inherit;font-size:12px;font-weight:600;padding:4px 8px;border-radius:6px;cursor:pointer;margin-left:4px;}
+  .rolebadge{font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;letter-spacing:.3px;}
+  .rolebadge.admin{color:var(--up);background:rgba(255,91,77,.12);}
+  .rolebadge.auditor{color:var(--accent);background:var(--accent-soft);}
+  .rolebadge.operator{color:var(--down);background:rgba(39,194,129,.12);}
+  .rolebadge.viewer{color:var(--ink-2);background:var(--card-2);}
+  .permwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;}
+  .permtbl{width:100%;border-collapse:collapse;font-size:12px;}
+  .permtbl th,.permtbl td{padding:10px 12px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap;}
+  .permtbl th{background:var(--card-2);color:var(--ink-2);font-weight:600;}
+  .permtbl th:first-child,.permtbl td:first-child{text-align:left;color:var(--ink);font-weight:600;}
+  .permtbl tr:last-child td{border-bottom:none;}
+  .pm{font-family:var(--mono);font-weight:700;font-size:11px;padding:2px 8px;border-radius:5px;}
+  .pm.write{color:var(--down);background:rgba(39,194,129,.12);}
+  .pm.read{color:var(--accent);background:var(--accent-soft);}
+  .pm.none{color:var(--ink-3);background:transparent;}
 
   /* —— 审核抽屉 —— */
   .drawer{position:fixed;top:0;right:0;width:520px;max-width:94vw;height:100vh;background:var(--bg);border-left:1px solid var(--line);box-shadow:-20px 0 50px rgba(0,0,0,.5);transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:60;display:flex;flex-direction:column;}
@@ -170,6 +189,8 @@
   .btn.ok{background:var(--down);border-color:var(--down);color:#04150d;}
   .btn.no{background:none;color:var(--up);border-color:rgba(255,91,77,.4);}
   .btn.pub{background:var(--accent);border-color:var(--accent);color:#1a1306;}
+  .btn:disabled,.tbtn:disabled{opacity:.35;cursor:not-allowed;filter:grayscale(.6);}
+  .btn:disabled:hover,.tbtn:disabled:hover{border-color:var(--line);color:inherit;}
   /* 抽屉顶部工具按钮 */
   .tbtn{background:var(--card);border:1px solid var(--line);color:var(--ink-2);font-size:11px;font-weight:600;padding:5px 9px;border-radius:7px;cursor:pointer;font-family:inherit;transition:.12s;}
   .tbtn:hover{color:var(--ink);border-color:var(--ink-3);}
@@ -232,6 +253,8 @@
     <div class="nav-i" data-page="review"><span class="dot"></span>内容审核</div>
     <div class="nav-i" data-page="push"><span class="dot"></span>推送运营</div>
     <div class="nav-i" data-page="sources"><span class="dot"></span>信源管理</div>
+    <div class="nav-i" data-page="users"><span class="dot"></span>用户运营</div>
+    <div class="nav-i" data-page="members"><span class="dot"></span>成员权限</div>
     <div class="foot">运营后台 · v0.1<br><b>数据源</b> Mock @ :8000</div>
   </aside>
 
@@ -240,7 +263,9 @@
     <div class="topbar">
       <div class="ttl" id="pageTitle">运营概览 <span class="live">实时</span></div>
       <div class="right">
-        <span class="role">角色 <b>审核员</b></span>
+        <span class="role">当前角色
+          <select id="roleSwitch" class="role-sel"></select>
+        </span>
         <div class="ava">运</div>
       </div>
     </div>
@@ -364,7 +389,11 @@
 
       <!-- 信源管理 -->
       <section class="page" id="page-sources">
-        <div class="bar"><div class="sec-hd" style="margin:0">信源清单 · 分级 S / A / B</div><div class="sp" style="flex:1"></div><div class="cnt" id="srcCount">—</div><button class="btn pub" id="srcAdd" style="flex:0 0 auto;padding:8px 14px;margin-left:12px">+ 新增信源</button></div>
+        <div class="bar"><div class="sec-hd" style="margin:0">信源清单 · 分级 S / A / B</div><div class="sp" style="flex:1"></div><div class="cnt" id="srcCount">—</div>
+          <button class="btn" id="srcSuggestBtn" style="flex:0 0 auto;padding:8px 14px;margin-left:12px">智能推荐</button>
+          <button class="btn" id="srcImportBtn" style="flex:0 0 auto;padding:8px 14px;margin-left:8px">批量导入</button>
+          <button class="btn" id="srcDedupBtn" style="flex:0 0 auto;padding:8px 14px;margin-left:8px">重复检测</button>
+          <button class="btn pub" id="srcAdd" style="flex:0 0 auto;padding:8px 14px;margin-left:8px">+ 新增信源</button></div>
         <div class="panel" id="srcForm" style="display:none;margin-bottom:14px">
           <div class="dg-grid">
             <div class="dg-field"><label>信源名称</label><input type="text" id="sfName" class="dg-input" style="width:100%;font-family:inherit" placeholder="如：彭博社"></div>
@@ -379,7 +408,68 @@
             <button class="btn pub" id="sfSave" style="flex:0 0 auto;padding:9px 16px">保存</button>
           </div>
         </div>
+        <div class="panel" id="srcImport" style="display:none;margin-bottom:14px">
+          <div class="dg-field"><label>批量导入 · 每行一个信源，格式「名称, 网址, 分级(S/A/B)」</label>
+            <textarea id="siText" class="dg-input" rows="6" style="width:100%;font-family:var(--mono);resize:vertical" placeholder="彭博社, https://bloomberg.com, S&#10;界面新闻, https://jiemian.com, B&#10;钛媒体, https://tmtpost.com"></textarea>
+          </div>
+          <div class="dg-foot">
+            <span class="dg-preview" id="siHint">分级留空默认 B；同名或同域名信源将自动跳过</span>
+            <span class="sp" style="flex:1"></span>
+            <button class="btn" id="siCancel" style="flex:0 0 auto;padding:9px 16px">取消</button>
+            <button class="btn pub" id="siSave" style="flex:0 0 auto;padding:9px 16px">解析并导入</button>
+          </div>
+        </div>
+        <div class="panel" id="srcSuggest" style="display:none;margin-bottom:14px">
+          <div class="dg-foot" style="margin-bottom:10px"><span class="sec-hd" style="margin:0;font-size:12px">智能推荐 · 近期事件中出现但未入库的信源</span><span class="sp" style="flex:1"></span><button class="btn" id="sgClose" style="flex:0 0 auto;padding:6px 12px">收起</button></div>
+          <div id="sgList"><div class="empty">加载中…</div></div>
+        </div>
+        <div class="panel" id="srcDedup" style="display:none;margin-bottom:14px">
+          <div class="dg-foot" style="margin-bottom:10px"><span class="sec-hd" style="margin:0;font-size:12px">重复检测 · 相同域名的信源分组</span><span class="sp" style="flex:1"></span><button class="btn" id="ddClose" style="flex:0 0 auto;padding:6px 12px">收起</button></div>
+          <div id="ddList"><div class="empty">加载中…</div></div>
+        </div>
         <div id="srcList"><div class="empty">加载中…</div></div>
+      </section>
+
+      <!-- 用户运营 -->
+      <section class="page" id="page-users">
+        <div class="kpis" id="usrKpis"><div class="kpi"><div class="k">总用户</div><div class="v">—</div></div></div>
+        <div class="bar" style="margin-top:18px">
+          <div class="seg sm" id="usrTier">
+            <button data-t="" class="on">全部</button>
+            <button data-t="member">会员</button>
+            <button data-t="free">免费</button>
+          </div>
+          <div class="seg sm" id="usrStatus" style="margin-left:10px">
+            <button data-s="" class="on">全部状态</button>
+            <button data-s="active">正常</button>
+            <button data-s="banned">已封禁</button>
+          </div>
+          <input type="text" id="usrKw" class="dg-input" style="margin-left:10px;width:200px;font-family:inherit" placeholder="搜索手机号 / 昵称">
+          <div class="sp" style="flex:1"></div>
+          <div class="cnt" id="usrCount">—</div>
+        </div>
+        <div id="usrList"><div class="empty">加载中…</div></div>
+      </section>
+
+      <!-- 成员权限 -->
+      <section class="page" id="page-members">
+        <div class="bar"><div class="sec-hd" style="margin:0">运营成员 · 角色与权限</div><div class="sp" style="flex:1"></div><div class="cnt" id="memCount">—</div>
+          <button class="btn pub" id="memAdd" style="flex:0 0 auto;padding:8px 14px;margin-left:12px">+ 新增成员</button></div>
+        <div class="panel" id="memForm" style="display:none;margin-bottom:14px">
+          <div class="dg-grid">
+            <div class="dg-field"><label>成员名称</label><input type="text" id="mfName" class="dg-input" style="width:100%;font-family:inherit" placeholder="如：张运营"></div>
+            <div class="dg-field"><label>角色</label><div class="seg sm" id="mfRole"></div></div>
+          </div>
+          <div class="dg-foot">
+            <span class="dg-preview" id="mfHint">选择角色后，该成员将按角色权限访问后台</span>
+            <span class="sp" style="flex:1"></span>
+            <button class="btn" id="mfCancel" style="flex:0 0 auto;padding:9px 16px">取消</button>
+            <button class="btn pub" id="mfSave" style="flex:0 0 auto;padding:9px 16px">保存</button>
+          </div>
+        </div>
+        <div id="memList"><div class="empty">加载中…</div></div>
+        <div class="sec-hd" style="margin:24px 0 12px">权限矩阵 · 角色 × 模块</div>
+        <div class="permwrap"><table class="permtbl" id="permTbl"><tbody><tr><td class="empty">加载中…</td></tr></tbody></table></div>
       </section>
     </div>
   </div>
@@ -412,6 +502,20 @@
     </div>
   </aside>
 
+  <!-- 用户详情抽屉 -->
+  <aside class="drawer" id="udr">
+    <div class="dr-hd">
+      <span style="font-size:11px;color:var(--accent);letter-spacing:1px;font-weight:700">用户详情</span>
+      <button class="x" id="udrClose">×</button>
+    </div>
+    <div class="dr-body" id="udrBody"></div>
+    <div class="dr-foot" id="udrFoot">
+      <button class="btn" id="uActTier">调整档位</button>
+      <button class="btn pub" id="uActExtend">延长会员</button>
+      <button class="btn no" id="uActBan">封禁</button>
+    </div>
+  </aside>
+
   <div class="toast" id="toast"></div>
 
 <script>
@@ -433,10 +537,11 @@
   function impCls(v){return v>=85?'h':v>=70?'m':'l';}
 
   /* —— 路由 —— */
-  var TITLES={overview:'运营概览',business:'运营数据',review:'内容审核',push:'推送运营',sources:'信源管理'};
+  var TITLES={overview:'运营概览',business:'运营数据',review:'内容审核',push:'推送运营',sources:'信源管理',users:'用户运营',members:'成员权限'};
   document.querySelectorAll('.nav-i').forEach(function(n){
     n.addEventListener('click',function(){
       var p=n.getAttribute('data-page');
+      if(n.classList.contains('disabled'))return;
       document.querySelectorAll('.nav-i').forEach(function(x){x.classList.remove('on');});
       n.classList.add('on');
       document.querySelectorAll('.page').forEach(function(x){x.classList.remove('on');});
@@ -446,6 +551,8 @@
       if(p==='review'&&!review.loaded){loadEvents(curStatus);review.loaded=true;}
       if(p==='push'&&!push.loaded){loadPush();push.loaded=true;}
       if(p==='sources'&&!sources.loaded){loadSources();sources.loaded=true;}
+      if(p==='users'&&!users.loaded){loadUsers();users.loaded=true;}
+      if(p==='members'&&!members.loaded){loadMembers();members.loaded=true;}
     });
   });
 
@@ -599,7 +706,7 @@
   function ckCN(t){return {citation:'引用校验',number_consistency:'数字一致性',compliance:'合规检查',disclaimer:'免责声明'}[t]||t;}
   function closeDrawer(){el('drawer').classList.remove('on');el('scrim').classList.remove('on');}
   el('drClose').addEventListener('click',closeDrawer);
-  el('scrim').addEventListener('click',closeDrawer);
+  el('scrim').addEventListener('click',function(){closeDrawer();if(typeof closeUser==='function')closeUser();});
 
   function refreshAfter(){loadEvents(curStatus);if(el('page-overview').classList.contains('on'))loadOverview();}
   function doAction(action,label,body){
@@ -755,6 +862,7 @@
     el('sfLevel').querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-l')===sfLv);});
     el('sfWeight').value=s?(+(s.weight!=null?s.weight:WMAP[s.level])).toFixed(2):WMAP[sfLv];
     el('srcForm').style.display='block';
+    el('srcImport').style.display='none';el('srcSuggest').style.display='none';el('srcDedup').style.display='none';
     el('sfName').focus();
   }
   function sfClose(){el('srcForm').style.display='none';sfEdit=null;}
@@ -795,8 +903,302 @@
     }
   });
 
+  /* —— 信源增强：智能推荐 / 批量导入 / 重复检测 —— */
+  function srcPanels(show){
+    ['srcForm','srcImport','srcSuggest','srcDedup'].forEach(function(p){
+      el(p).style.display=(p===show)?'block':'none';
+    });
+  }
+  // 批量导入
+  el('srcImportBtn').addEventListener('click',function(){srcPanels('srcImport');el('siText').focus();});
+  el('siCancel').addEventListener('click',function(){srcPanels();});
+  el('siSave').addEventListener('click',function(){
+    var lines=el('siText').value.split('\n');
+    var rows=[];
+    lines.forEach(function(ln){
+      ln=ln.trim();if(!ln)return;
+      var parts=ln.split(/[,，]/).map(function(x){return x.trim();});
+      var lv=(parts[2]||'B').toUpperCase();
+      if(['S','A','B'].indexOf(lv)<0)lv='B';
+      rows.push({name:parts[0],url:parts[1]||'',level:lv});
+    });
+    if(!rows.length){toast('请粘贴至少一行信源');return;}
+    api('/admin/sources/import',{method:'POST',body:{rows:rows}}).then(function(d){
+      toast('导入完成：新增 '+d.added_count+' 个'+(d.skipped_count?'，跳过 '+d.skipped_count+' 个重复':''));
+      el('siText').value='';srcPanels();loadSources();
+    }).catch(function(e){toast('导入失败：'+e.message);});
+  });
+  // 智能推荐
+  el('srcSuggestBtn').addEventListener('click',function(){
+    srcPanels('srcSuggest');
+    el('sgList').innerHTML='<div class="empty">分析中…</div>';
+    api('/admin/sources/suggest').then(function(d){
+      var items=d.items||[];
+      el('sgList').innerHTML=items.length?items.map(function(s){
+        return '<div class="src" data-name="'+s.name+'" data-url="'+(s.url||'')+'" data-level="'+s.level+'">'
+          +'<div class="lv '+s.level+'">'+s.level+'</div>'
+          +'<div class="nm">'+s.name+(s.url?' <span style="font-size:10px;color:var(--ink-3);font-weight:400">'+s.url.replace(/^https?:\/\//,'')+'</span>':'')+'</div>'
+          +'<div class="w pmono" title="近期出现次数">出现 '+s.count+' 次</div>'
+          +'<div class="sact"><button class="pub" data-act="adopt">采纳入库</button></div>'
+          +'</div>';
+      }).join(''):'<div class="empty">暂无可推荐信源（事件中的信源均已入库）</div>';
+    }).catch(function(e){el('sgList').innerHTML='<div class="empty">加载失败：'+e.message+'</div>';});
+  });
+  el('sgClose').addEventListener('click',function(){srcPanels();});
+  el('sgList').addEventListener('click',function(e){
+    if(e.target.getAttribute('data-act')!=='adopt')return;
+    var row=e.target.closest('.src');if(!row)return;
+    var body={name:row.getAttribute('data-name'),url:row.getAttribute('data-url'),level:row.getAttribute('data-level')};
+    api('/admin/sources',{method:'POST',body:body}).then(function(){
+      toast('已采纳「'+body.name+'」');row.remove();loadSources();
+    }).catch(function(x){toast('采纳失败：'+x.message);});
+  });
+  // 重复检测
+  el('srcDedupBtn').addEventListener('click',function(){
+    srcPanels('srcDedup');
+    el('ddList').innerHTML='<div class="empty">扫描中…</div>';
+    api('/admin/sources/dedup-scan',{method:'POST',body:{}}).then(function(d){
+      var groups=d.groups||[];
+      el('ddList').innerHTML=groups.length?groups.map(function(g){
+        return '<div class="dd-grp"><div class="dd-host pmono">⚠ 域名重复 · '+g.host+'</div>'
+          +g.items.map(function(s){
+            return '<div class="src" data-id="'+s.id+'">'
+              +'<div class="lv '+s.level+'">'+s.level+'</div>'
+              +'<div class="nm">'+s.name+' <span style="font-size:10px;color:var(--ink-3);font-weight:400">'+(s.url||'').replace(/^https?:\/\//,'')+'</span></div>'
+              +'<div class="w pmono">权重 '+(+s.weight).toFixed(2)+'</div>'
+              +'<div class="sact"><button class="del" data-act="del">删除</button></div>'
+              +'</div>';
+          }).join('')+'</div>';
+      }).join(''):'<div class="empty">未发现重复信源，信源库很干净</div>';
+    }).catch(function(e){el('ddList').innerHTML='<div class="empty">扫描失败：'+e.message+'</div>';});
+  });
+  el('ddClose').addEventListener('click',function(){srcPanels();});
+  el('ddList').addEventListener('click',function(e){
+    if(e.target.getAttribute('data-act')!=='del')return;
+    var row=e.target.closest('.src');if(!row)return;
+    if(!confirm('确认删除该重复信源？'))return;
+    var id=row.getAttribute('data-id');
+    api('/admin/sources/'+id+'/delete',{method:'POST',body:{}}).then(function(){
+      toast('已删除');el('srcDedupBtn').click();loadSources();
+    }).catch(function(x){toast('删除失败：'+x.message);});
+  });
+
+  /* —— 用户运营 —— */
+  var users={loaded:false};
+  var uFilter={tier:'',status:'',q:''};
+  var uCanWrite=false;   // 由 RBAC applyRole 设置
+  var uCur=null;         // 当前抽屉用户
+  function tierLabel(t){return t==='member'?'<span class="rolebadge operator">会员</span>':'<span class="rolebadge viewer">免费</span>';}
+  function statusLabel(s){return s==='banned'?'<span class="rolebadge auditor" style="color:var(--up);background:rgba(255,91,77,.12)">已封禁</span>':'';}
+  function loadUsers(){
+    var qs='?tier='+encodeURIComponent(uFilter.tier)+'&status='+encodeURIComponent(uFilter.status)+'&q='+encodeURIComponent(uFilter.q);
+    api('/admin/users'+qs).then(function(d){
+      var s=d.summary||{};
+      el('usrKpis').innerHTML=
+        kpi('总用户',s.total||0,'amber','App 注册总数')+
+        kpi('付费会员',s.member||0,'amber','当前会员用户')+
+        kpi('累计营收','¥'+(s.revenue||0),'down','会员付费总额')+
+        kpi('封禁用户',s.banned||0,'up','违规已封禁');
+      var items=d.items||[];
+      el('usrCount').textContent='共 '+items.length+' 名用户';
+      el('usrList').innerHTML=items.length?items.map(function(u){
+        return '<div class="src'+(u.status==='banned'?' off':'')+'" data-id="'+u.id+'">'
+          +'<div class="nm" style="flex:1">'+u.nick+' '+tierLabel(u.tier)+' '+statusLabel(u.status)
+          +'<div style="font-size:11px;color:var(--ink-3);font-weight:400;margin-top:3px;font-family:var(--mono)">'+u.phone+' · 注册 '+fmtTime(u.registered_at)+(u.member_expire?' · 到期 '+u.member_expire:'')+'</div></div>'
+          +'<div class="pmono" style="font-size:12px">¥'+u.total_paid+'</div>'
+          +'<div class="sact"><button data-act="view">详情</button></div>'
+          +'</div>';
+      }).join(''):'<div class="empty">无匹配用户</div>';
+    }).catch(function(e){el('usrList').innerHTML='<div class="empty">加载失败：'+e.message+'</div>';});
+  }
+  el('usrTier').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+    this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});
+    uFilter.tier=b.getAttribute('data-t');loadUsers();});
+  el('usrStatus').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+    this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});
+    uFilter.status=b.getAttribute('data-s');loadUsers();});
+  var _uk;
+  el('usrKw').addEventListener('input',function(){var v=this.value.trim();clearTimeout(_uk);_uk=setTimeout(function(){uFilter.q=v;loadUsers();},250);});
+
+  function openUser(id){
+    api('/admin/users/'+id).then(function(u){
+      uCur=u;
+      var orders=(u.orders||[]).slice().reverse();
+      var timeline=orders.length?orders.map(function(o){
+        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">'
+          +'<span class="pmono" style="font-size:11px;color:var(--ink-3);width:96px">'+fmtTime(o.paid_at)+'</span>'
+          +'<span style="flex:1;font-size:13px">'+o.plan+'</span>'
+          +'<span class="pmono" style="color:var(--accent);font-weight:700">¥'+o.amount+'</span></div>';
+      }).join(''):'<div class="empty" style="padding:20px">暂无付费记录</div>';
+      el('udrBody').innerHTML=
+        '<div class="dt">'+u.nick+'</div>'
+        +'<div style="margin:8px 0 16px;display:flex;gap:8px;align-items:center">'+tierLabel(u.tier)+' '+statusLabel(u.status)
+        +'<span class="pmono" style="font-size:12px;color:var(--ink-3)">'+u.phone+'</span></div>'
+        +'<div class="kpis" style="grid-template-columns:1fr 1fr">'
+        +kpi('累计付费','¥'+u.total_paid,'amber','')
+        +kpi('会员到期',u.member_expire||'—','','')
+        +'</div>'
+        +'<div class="sec-hd" style="margin:20px 0 6px;font-size:12px">注册时间</div>'
+        +'<div class="pmono" style="font-size:12px;color:var(--ink-2)">'+fmtTime(u.registered_at)+'</div>'
+        +'<div class="sec-hd" style="margin:20px 0 6px;font-size:12px">付费记录 · 共 '+(u.orders||[]).length+' 笔</div>'
+        +timeline;
+      // 按钮文案与可用性
+      el('uActBan').textContent=(u.status==='banned')?'解除封禁':'封禁';
+      el('udrFoot').style.display=uCanWrite?'flex':'none';
+      el('udr').classList.add('on');el('scrim').classList.add('on');
+    }).catch(function(e){toast('加载失败：'+e.message);});
+  }
+  function closeUser(){el('udr').classList.remove('on');el('scrim').classList.remove('on');uCur=null;}
+  el('udrClose').addEventListener('click',closeUser);
+  el('usrList').addEventListener('click',function(e){
+    var row=e.target.closest('.src');if(!row)return;
+    if(e.target.getAttribute('data-act')==='view')openUser(row.getAttribute('data-id'));
+  });
+  function uAct(body,msg){
+    if(!uCur)return;
+    api('/admin/users/'+uCur.id,{method:'POST',body:body}).then(function(){
+      toast(msg);closeUser();loadUsers();
+    }).catch(function(e){toast('操作失败：'+e.message);});
+  }
+  el('uActBan').addEventListener('click',function(){
+    if(!uCur)return;
+    if(uCur.status==='banned'){uAct({action:'unban'},'已解除封禁');}
+    else if(confirm('确认封禁该用户？')){uAct({action:'ban'},'已封禁');}
+  });
+  el('uActTier').addEventListener('click',function(){
+    if(!uCur)return;
+    var nt=uCur.tier==='member'?'free':'member';
+    uAct({action:'set_tier',tier:nt},'已切换为'+(nt==='member'?'会员':'免费'));
+  });
+  el('uActExtend').addEventListener('click',function(){
+    if(!uCur)return;
+    var d=prompt('延长会员天数','30');if(d===null)return;
+    var days=parseInt(d,10);if(!days||days<=0){toast('请输入有效天数');return;}
+    uAct({action:'extend',days:days},'会员已延长 '+days+' 天');
+  });
+
+  /* —— 成员权限 RBAC —— */
+  var members={loaded:false};
+  var PERM_DATA={};      // role -> {page:level}
+  var ROLE_LIST=[];      // [{code,name,perms}]
+  var PAGE_NAMES={};
+  var PAGES=[];
+  var curRole='admin';
+  var mfRoleSel='viewer';
+  // 各页写操作按钮（角色非 write 时禁用）
+  var WRITE_BTNS={
+    review:['actApprove','actReject','actPin','actPush','actEdit','actMerge'],
+    push:['dgSave','dgSendNow'],
+    sources:['srcAdd','srcImportBtn','srcSuggestBtn','srcDedupBtn'],
+    members:['memAdd']
+  };
+  function roleName(code){var r=PERM_DATA[code];return r?ROLE_LIST.filter(function(x){return x.code===code;})[0].name:code;}
+  function applyRole(role){
+    curRole=role;
+    var perms=(ROLE_LIST.filter(function(r){return r.code===role;})[0]||{}).perms||{};
+    document.querySelectorAll('.nav-i').forEach(function(n){
+      var p=n.getAttribute('data-page');
+      var lv=perms[p]||'none';
+      if(lv==='none'){n.style.display='none';n.classList.add('disabled');}
+      else{n.style.display='';n.classList.remove('disabled');}
+    });
+    // 写操作按钮按权限启停
+    Object.keys(WRITE_BTNS).forEach(function(p){
+      var canWrite=(perms[p]==='write');
+      WRITE_BTNS[p].forEach(function(id){var b=el(id);if(b)b.disabled=!canWrite;});
+    });
+    // 用户运营写权限（控制详情抽屉操作区）
+    uCanWrite=(perms.users==='write');
+    el('udrFoot').style.display=uCanWrite?'flex':'none';
+    // 若当前激活页被隐藏，回到运营概览
+    var active=document.querySelector('.nav-i.on');
+    if(active&&active.style.display==='none'){
+      document.querySelector('.nav-i[data-page="overview"]').click();
+    }
+  }
+  function loadMembers(){
+    // 角色矩阵
+    api('/admin/roles').then(function(d){
+      PAGES=d.pages;PAGE_NAMES=d.page_names;ROLE_LIST=d.roles;
+      d.roles.forEach(function(r){PERM_DATA[r.code]=r.perms;});
+      // 角色切换下拉
+      el('roleSwitch').innerHTML=d.roles.map(function(r){
+        return '<option value="'+r.code+'"'+(r.code===curRole?' selected':'')+'>'+r.name+'</option>';
+      }).join('');
+      // 新增表单角色 seg
+      el('mfRole').innerHTML=d.roles.map(function(r){
+        return '<button data-r="'+r.code+'">'+r.name+'</button>';
+      }).join('');
+      // 权限矩阵表
+      var head='<tr><th>角色 \\ 模块</th>'+d.pages.map(function(p){return '<th>'+d.page_names[p]+'</th>';}).join('')+'</tr>';
+      var rows=d.roles.map(function(r){
+        return '<tr><td><span class="rolebadge '+r.code+'">'+r.name+'</span></td>'
+          +d.pages.map(function(p){var lv=r.perms[p];var t=lv==='write'?'读写':lv==='read'?'只读':'—';return '<td><span class="pm '+lv+'">'+t+'</span></td>';}).join('')+'</tr>';
+      }).join('');
+      el('permTbl').innerHTML='<thead>'+head+'</thead><tbody>'+rows+'</tbody>';
+      applyRole(curRole);
+    });
+    // 成员列表
+    renderMembers();
+  }
+  function renderMembers(){
+    api('/admin/members').then(function(d){
+      var items=d.items||[];
+      el('memCount').textContent='共 '+items.length+' 名成员';
+      el('memList').innerHTML=items.length?items.map(function(m){
+        return '<div class="src'+(m.enabled?'':' off')+'" data-id="'+m.id+'" data-role="'+m.role+'">'
+          +'<div class="nm" style="flex:1">'+m.name+' <span class="rolebadge '+m.role+'" style="margin-left:8px">'+m.role_name+'</span></div>'
+          +'<div class="sw'+(m.enabled?' on':'')+'" data-act="toggle"></div>'
+          +'<div class="sact"><button data-act="edit">改角色</button><button class="del" data-act="del">删除</button></div>'
+          +'</div>';
+      }).join(''):'<div class="empty">暂无成员</div>';
+    }).catch(function(e){el('memList').innerHTML='<div class="empty">加载失败：'+e.message+'</div>';});
+  }
+  function mfOpen(m){
+    el('memForm').setAttribute('data-edit',m?m.id:'');
+    el('mfName').value=m?m.name:'';
+    el('mfName').disabled=!!m;
+    mfRoleSel=m?m.role:'viewer';
+    el('mfRole').querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-r')===mfRoleSel);});
+    el('memForm').style.display='block';
+    if(!m)el('mfName').focus();
+  }
+  function mfClose(){el('memForm').style.display='none';el('memForm').setAttribute('data-edit','');}
+  el('memAdd').addEventListener('click',function(){mfOpen(null);});
+  el('mfCancel').addEventListener('click',mfClose);
+  el('mfRole').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+    mfRoleSel=b.getAttribute('data-r');
+    this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});
+  });
+  el('mfSave').addEventListener('click',function(){
+    var editId=el('memForm').getAttribute('data-edit');
+    var name=el('mfName').value.trim();
+    if(!editId&&!name){toast('请填写成员名称');return;}
+    var body=editId?{role:mfRoleSel}:{name:name,role:mfRoleSel};
+    var path=editId?('/admin/members/'+editId):'/admin/members';
+    api(path,{method:'POST',body:body}).then(function(){
+      toast(editId?'成员已更新':'成员已新增');mfClose();renderMembers();
+    }).catch(function(e){toast('保存失败：'+e.message);});
+  });
+  el('memList').addEventListener('click',function(e){
+    var row=e.target.closest('.src');if(!row)return;
+    var id=row.getAttribute('data-id');
+    var act=e.target.getAttribute('data-act')||'';
+    if(act==='toggle'){
+      var on=!e.target.classList.contains('on');
+      api('/admin/members/'+id,{method:'POST',body:{enabled:on}}).then(renderMembers).catch(function(x){toast('操作失败：'+x.message);});
+    }else if(act==='edit'){
+      api('/admin/members').then(function(d){var m=(d.items||[]).filter(function(x){return x.id===id;})[0];if(m)mfOpen(m);});
+    }else if(act==='del'){
+      if(!confirm('确认删除该成员？'))return;
+      api('/admin/members/'+id+'/delete',{method:'POST',body:{}}).then(function(){toast('成员已删除');renderMembers();}).catch(function(x){toast(x.message);});
+    }
+  });
+  el('roleSwitch').addEventListener('change',function(){applyRole(this.value);toast('已切换为「'+roleName(this.value)+'」视角');});
+
   /* —— 启动 —— */
   loadOverview();
+  loadMembers();members.loaded=true;   // 预加载角色矩阵，使顶栏 RBAC 立即生效
 </script>
 </body>
 </html>
