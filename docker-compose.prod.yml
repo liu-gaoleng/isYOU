@@ -1,0 +1,123 @@
+# 「热读」生产部署 docker-compose
+# 用法：
+#   1. 复制 .env.example 为 .env 并填好数据库 / Redis / LLM 密钥
+#   2. docker compose -f docker-compose.prod.yml build
+#   3. docker compose -f docker-compose.prod.yml up -d
+#   4. 首次部署执行迁移：docker compose -f docker-compose.prod.yml run --rm migrate
+#
+# 包含：
+#   - postgres   pgvector PG16 主库
+#   - redis      榜单 / 队列
+#   - migrate    一次性容器：alembic upgrade head
+#   - web        FastAPI 服务（uvicorn 多 worker）
+#   - worker     管线一次性执行（cron 触发或手工）；阶段 4.3 接 Celery beat 后改为常驻
+#
+# 模型缓存通过命名卷 hf_cache 持久化，避免每次重启重新下载 bge-small-zh-v1.5
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: redu_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rd}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rd}
+      POSTGRES_DB: ${POSTGRES_DB:-redu}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./content_engine/migrations/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+    # 生产建议关闭外网端口，仅内网/容器网络访问
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rd} -d ${POSTGRES_DB:-redu}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: redu_redis
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: redu/content-engine:latest
+    container_name: redu_migrate
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-rd}:${POSTGRES_PASSWORD:-rd}@postgres:5432/${POSTGRES_DB:-redu}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # 一次性容器：跑完即退出
+    restart: "no"
+    command: ["alembic", "-c", "content_engine/alembic.ini", "upgrade", "head"]
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: redu/content-engine:latest
+    container_name: redu_web
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-rd}:${POSTGRES_PASSWORD:-rd}@postgres:5432/${POSTGRES_DB:-redu}
+      REDIS_URL: redis://redis:6379/0
+      PORT: "8000"
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - hf_cache:/app/.cache
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # 管线 worker：当前阶段以一次性执行为主（cron 调起 docker compose run worker）。
+  # 阶段 4.3 切换 Celery beat 后改为常驻 + 多 replicas。
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: redu/content-engine:latest
+    container_name: redu_worker
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-rd}:${POSTGRES_PASSWORD:-rd}@postgres:5432/${POSTGRES_DB:-redu}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - hf_cache:/app/.cache
+    profiles: ["worker"]
+    # 默认跑一次全链路；可通过 `docker compose run --rm worker python -m content_engine.stages.collect` 单独触发某阶段
+    command: ["python", "-m", "content_engine.stages.run_all"]
+    restart: "no"
+
+volumes:
+  pgdata:
+  redisdata:
+  hf_cache:

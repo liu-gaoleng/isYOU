@@ -13,7 +13,6 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from content_engine.models.base import Base
 from content_engine.models.enums import Module, SourceLevel
 
 

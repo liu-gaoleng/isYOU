@@ -1,0 +1,41 @@
+# Docker 构建忽略：减小上下文 + 避免本地 venv / 缓存 / 密钥进镜像
+.git
+.gitignore
+.github
+.trae
+._agent
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# venv
+.venv/
+venv/
+env/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# 本地数据 / 密钥
+.env
+.env.*
+!.env.example
+pgdata/
+redisdata/
+
+# 文档（运行时不需要）
+*.md
+prototype/
+mock_server/
+pipeline_demo/
