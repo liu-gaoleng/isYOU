@@ -23,6 +23,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from content_engine.models import Base  # noqa: E402  (after sys.path tweak)
+from content_engine.models import ops as _ops  # noqa: E402,F401  确保运营态表被注册
 from content_engine.models import schema as _schema  # noqa: E402,F401  确保所有表被注册
 
 config = context.config

@@ -7,6 +7,17 @@
 from .base import Base, IdMixin, TimestampMixin
 from .db import get_engine, get_session
 from .enums import ArticleStatus, EventStatus, Module, SourceLevel
+from .ops import (
+    AdminMember,
+    AppOrder,
+    AppUser,
+    DigestConfig,
+    Favorite,
+    PushRecord,
+    ReadingHistory,
+    Report,
+    ReportPurchase,
+)
 from .schema import (
     EMBEDDING_DIM,
     Event,
@@ -35,6 +46,15 @@ __all__ = [
     "ReviewLog",
     "SourceHealth",
     "User",
+    "AppUser",
+    "AppOrder",
+    "Report",
+    "ReportPurchase",
+    "PushRecord",
+    "DigestConfig",
+    "AdminMember",
+    "Favorite",
+    "ReadingHistory",
     "EMBEDDING_DIM",
     "get_engine",
     "get_session",

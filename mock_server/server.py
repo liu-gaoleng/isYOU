@@ -28,6 +28,10 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
+# 阶段 4.4：真实数据适配层（事件读 DB + output.json 降级 + 运营态访问器）
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import db_source  # noqa: E402
+
 
 def _now():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -49,101 +53,33 @@ MODULE_CN2EN = {v: k for k, v in MODULE_EN2CN.items()}
 
 
 # ----------------------------------------------------------------------------
-# 数据层：加载 output.json 并增强为完整 API 数据模型
+# 数据层：经适配层加载事件（DB 优先，降级 output.json）
 # ----------------------------------------------------------------------------
 def load_events():
-    """读取管线产物，补齐 event_id / 排名 / 热度 / 深度解读等 API 字段。"""
-    try:
-        with open(DATA_FILE, encoding="utf-8") as f:
-            raw = json.load(f)
-    except FileNotFoundError:
-        print(f"[警告] 未找到 {DATA_FILE}，请先运行 pipeline_demo/run_pipeline.py")
-        raw = []
-
-    events = []
-    # 按 importance 排序后赋全局排名
-    raw.sort(key=lambda x: x.get("importance", 0), reverse=True)
-    for i, e in enumerate(raw):
-        module_cn = e.get("module", "科技")
-        eid = f"evt_{1000 + i}"
-        importance = e.get("importance", 50.0)
-        events.append({
-            "event_id": eid,
-            "module_cn": module_cn,
-            "module": MODULE_CN2EN.get(module_cn, "tech"),
-            "title": e.get("title", ""),
-            "summary": e.get("summary", []),
-            "why_matters": e.get("why_matters", ""),
-            "sources": e.get("sources", []),
-            "source_count": e.get("source_count", 1),
-            "importance": importance,
-            "hotness": int(importance * 10000),   # 模拟热度值
-            "published_at": "2026-06-08T08:00:00Z",
-            # CMS 状态机：reviewing（待审核）→ published（已发布）/ rejected（已打回）
-            # 前 1/3 默认置为待审核，其余视为已发布，便于审核页有真实分布
-            "status": "reviewing" if i % 3 == 0 else "published",
-            "pinned": False,        # 是否置顶
-            "pushed": False,        # 是否已推送
-            "updated_at": "2026-06-08T08:00:00Z",
-            "disclaimer": "本文内容由 AI 辅助生成，不构成投资建议" if module_cn in ("金融", "宏观") else "",
-            # 深度解读（付费内容）
-            "deep_content_full": (
-                f"【深度解读】围绕「{e.get('title','')[:20]}」，从行业格局、"
-                "关键玩家、对投资人与创业者的影响三个维度展开分析……（此处为 Mock 全文，"
-                "生产环境由大模型生成付费深度内容）"
-            ),
-        })
-    return events
+    """阶段 4.4：委托适配层加载事件（真实 DB / output.json 降级）。"""
+    db_source.ensure_seeded()
+    return db_source.load_events()
 
 
 EVENTS = load_events()
 EVENTS_BY_ID = {e["event_id"]: e for e in EVENTS}
 
-# 内存态：用户收藏（按 token 区分）
-FAVORITES = {
-    "guest": ["evt_1001", "evt_1003", "evt_1006"],
-}
+# 内存态：用户收藏（按 token 区分）—— 经适配层从 DB / seed 加载
+FAVORITES = db_source.load_favorites()
 
 # 内存态：阅读历史（按 token 区分，最近在前；进入事件详情时写入）
-HISTORY = {
-    "guest": [
-        {"event_id": "evt_1002", "viewed_at": "2026-06-09T21:12:00Z"},
-        {"event_id": "evt_1004", "viewed_at": "2026-06-09T20:40:00Z"},
-        {"event_id": "evt_1001", "viewed_at": "2026-06-09T08:15:00Z"},
-    ],
-}
+HISTORY = db_source.load_history()
 
 # 内存态：推送设置（按 token 区分）
 DEFAULT_PUSH_SETTINGS = {"daily_push": True, "push_time": "08:00",
                          "breaking_push": False}
 PUSH_SETTINGS = {}
 
-# 内存态：推送历史（审核页「推送」动作写入，供推送运营查看）
-# 预置几条历史，带触达/打开指标，便于推送运营页演示
-PUSH_HISTORY = [
-    {"push_id": "push_seed03", "event_id": "evt_1002", "type": "manual",
-     "title": "美联储维持利率不变，鲍威尔释放年内降息信号",
-     "audience": "all", "pushed_at": "2026-06-08T08:30:00Z",
-     "sent": 10180, "opened": 2342},
-    {"push_id": "push_seed02", "event_id": "evt_1005", "type": "daily",
-     "title": "每日早报 · 6 月 7 日 | 科技 / 金融 / AI / 宏观",
-     "audience": "all", "pushed_at": "2026-06-07T08:00:00Z",
-     "sent": 9870, "opened": 2603},
-    {"push_id": "push_seed01", "event_id": "evt_1001", "type": "manual",
-     "title": "OpenAI 发布新一代模型，推理成本下降 80%",
-     "audience": "member", "pushed_at": "2026-06-06T19:15:00Z",
-     "sent": 2280, "opened": 821},
-]
+# 内存态：推送历史（审核页「推送」动作写入，供推送运营查看）—— 经适配层从 DB / seed 加载
+PUSH_HISTORY = db_source.load_push_history()
 
-# 内存态：定时早报配置
-DIGEST_CONFIG = {
-    "enabled": True,
-    "send_time": "08:00",                 # 每日推送时间
-    "audience": "all",                    # all / member / free
-    "modules": ["tech", "finance", "ai", "macro"],   # 纳入早报的模块
-    "top_n": 5,                           # 每日精选条数
-    "title_template": "每日早报 · {date} | 今日 {count} 条要闻",
-}
+# 内存态：定时早报配置 —— 经适配层从 DB / seed 加载
+DIGEST_CONFIG = db_source.load_digest_config()
 
 # 内存态：信源库（信源管理页的增/改/调权重写操作作用于此）
 # level S/A/B 对应权重 1.0/0.7/0.3
@@ -182,50 +118,15 @@ ROLE_PERMS = {
                          "users": "read"}},
 }
 
-ADMIN_USERS = [
-    {"id": "u_1", "name": "陈管理", "role": "admin", "enabled": True,
-     "created_at": "2026-05-01T08:00:00Z"},
-    {"id": "u_2", "name": "李审核", "role": "auditor", "enabled": True,
-     "created_at": "2026-05-12T08:00:00Z"},
-    {"id": "u_3", "name": "王运营", "role": "operator", "enabled": True,
-     "created_at": "2026-05-20T08:00:00Z"},
-    {"id": "u_4", "name": "访客demo", "role": "viewer", "enabled": False,
-     "created_at": "2026-06-01T08:00:00Z"},
-]
+# 运营成员 —— 经适配层从 DB / seed 加载
+ADMIN_USERS = db_source.load_admin_members()
 
 # ----------------------------------------------------------------------------
 # C 端用户运营：App 注册 / 付费用户
 # tier: free / member；status: active / banned
 # ----------------------------------------------------------------------------
-APP_USERS = [
-    {"id": "au_1", "phone": "138****8001", "nick": "投资老张", "tier": "member",
-     "status": "active", "registered_at": "2026-03-02T10:00:00Z",
-     "member_expire": "2027-03-02", "total_paid": 298,
-     "orders": [{"order_id": "o_1001", "plan": "会员年卡", "amount": 298,
-                 "paid_at": "2026-03-02T10:05:00Z"}]},
-    {"id": "au_2", "phone": "139****2046", "nick": "AI产品李", "tier": "member",
-     "status": "active", "registered_at": "2026-04-11T09:30:00Z",
-     "member_expire": "2026-07-11", "total_paid": 90,
-     "orders": [{"order_id": "o_1002", "plan": "会员月卡", "amount": 30,
-                 "paid_at": "2026-04-11T09:32:00Z"},
-                {"order_id": "o_1003", "plan": "会员月卡", "amount": 30,
-                 "paid_at": "2026-05-11T09:32:00Z"},
-                {"order_id": "o_1004", "plan": "会员月卡", "amount": 30,
-                 "paid_at": "2026-06-11T09:32:00Z"}]},
-    {"id": "au_3", "phone": "137****5588", "nick": "创业者王", "tier": "free",
-     "status": "active", "registered_at": "2026-05-20T14:00:00Z",
-     "member_expire": "", "total_paid": 0, "orders": []},
-    {"id": "au_4", "phone": "150****3322", "nick": "羊毛党", "tier": "free",
-     "status": "banned", "registered_at": "2026-05-28T22:10:00Z",
-     "member_expire": "", "total_paid": 0, "orders": []},
-    {"id": "au_5", "phone": "186****7799", "nick": "宏观研究员", "tier": "member",
-     "status": "active", "registered_at": "2026-02-15T08:00:00Z",
-     "member_expire": "2026-06-15", "total_paid": 328,
-     "orders": [{"order_id": "o_1005", "plan": "会员年卡", "amount": 298,
-                 "paid_at": "2026-02-15T08:05:00Z"},
-                {"order_id": "o_1006", "plan": "会员月卡", "amount": 30,
-                 "paid_at": "2026-02-15T08:06:00Z"}]},
-]
+# C 端用户运营 —— 经适配层从 DB / seed 加载
+APP_USERS = db_source.load_app_users()
 
 # 会员套餐
 PLANS = [
@@ -236,33 +137,12 @@ PLANS = [
      "store_product_id": "com.redu.member.year"},
 ]
 
-# 内存态：付费报告。member_free=True 表示会员免费，否则会员 8 折
-REPORTS = [
-    {"id": "rpt_1", "title": "2026 AI 应用层投资地图", "module": "ai",
-     "pages": 62, "price": 299, "member_free": False,
-     "desc": "62 页 · 含 200+ 标的数据库",
-     "summary": "系统拆解 2026 年 AI 应用层的六大高增长方向，附 200+ 一二级标的数据库与估值对标。",
-     "toc": ["应用层投资主线与时间窗口", "Agent / 多模态 / 垂直工作流三大赛道",
-             "200+ 标的数据库与估值对标", "退出路径与风险提示"]},
-    {"id": "rpt_2", "title": "一级市场融资月报 · 5 月", "module": "finance",
-     "pages": 38, "price": 99, "member_free": True,
-     "desc": "38 页 · 赛道热度与估值追踪",
-     "summary": "5 月一级市场融资全景：按赛道统计金额、轮次分布与头部机构出手，附热度榜与估值变化。",
-     "toc": ["5 月融资总览与同比", "热门赛道与代表案例", "活跃机构出手统计",
-             "估值区间与下月展望"]},
-    {"id": "rpt_3", "title": "宏观季度展望：利率与流动性", "module": "macro",
-     "pages": 45, "price": 199, "member_free": False,
-     "desc": "45 页 · 含数据看板访问权",
-     "summary": "围绕利率路径与全球流动性，给出未来一季度宏观情景假设、资产配置含义与关键数据日历。",
-     "toc": ["利率路径的三种情景", "全球流动性与汇率", "大类资产配置含义",
-             "关键数据与事件日历"]},
-]
+# 内存态：付费报告 —— 经适配层从 DB / seed 加载。member_free=True 表示会员免费，否则会员 8 折
+REPORTS = db_source.load_reports()
 REPORTS_BY_ID = {r["id"]: r for r in REPORTS}
 
-# 内存态：已购报告（按 token 区分），预置 guest 已购 2 份
-PURCHASED_REPORTS = {
-    "guest": ["rpt_2", "rpt_3"],
-}
+# 内存态：已购报告（按 token 区分）—— 经适配层从 DB / seed 加载
+PURCHASED_REPORTS = db_source.load_purchases()
 
 
 def report_card(r, owned):
@@ -832,14 +712,19 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(None, code=1003, http_status=404, message="事件不存在")
             if action == "approve":
                 e["status"] = "published"        # 审核通过即发布到客户端
+                db_source.persist_event_status(eid, "published", "mock", "approve")
             elif action == "reject":
                 e["status"] = "rejected"
+                db_source.persist_event_status(eid, "rejected", "mock", body.get("note"))
             elif action == "publish":
                 e["status"] = "published"
+                db_source.persist_event_status(eid, "published", "mock", "publish")
             elif action == "pin":
                 e["pinned"] = True
+                db_source.persist_event_pin(eid, True, "mock")
             elif action == "unpin":
                 e["pinned"] = False
+                db_source.persist_event_pin(eid, False, "mock")
             elif action == "push":
                 e["pushed"] = True
                 aud = body.get("audience", "all")
@@ -869,6 +754,10 @@ class Handler(BaseHTTPRequestHandler):
             if "why_matters" in body:
                 e["why_matters"] = body["why_matters"]
             e["updated_at"] = _now()
+            db_source.persist_event_edit(
+                e["event_id"], title=e["title"], summary=e["summary"],
+                why_matters=e["why_matters"],
+            )
             return self._send({"event_id": e["event_id"], "title": e["title"],
                                "summary": e["summary"], "why_matters": e["why_matters"]})
 
@@ -891,6 +780,7 @@ class Handler(BaseHTTPRequestHandler):
                         target["sources"].append(s); seen.add(key)
                 se["status"] = "rejected"        # 被合并的事件下线
                 se["updated_at"] = _now()
+                db_source.persist_event_status(sid, "rejected", "mock", f"merged into {target_id}")
                 merged += 1
             target["source_count"] = len(target["sources"])
             target["updated_at"] = _now()
