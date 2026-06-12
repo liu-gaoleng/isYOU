@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import time
 
-from . import classify, clean, cluster, collect, score, summarize
+from . import classify, clean, cluster, collect, publish, score, summarize
 
 
 def run_all() -> dict:
@@ -25,6 +25,7 @@ def run_all() -> dict:
     stages_stats["cluster"] = cluster.run()
     stages_stats["summarize"] = summarize.run()
     stages_stats["score"] = score.run()
+    stages_stats["publish"] = publish.run()
 
     print("=" * 60)
     print(f"完成，耗时 {time.time() - t0:.1f}s")

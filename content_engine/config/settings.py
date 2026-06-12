@@ -148,6 +148,60 @@ class RankingSettings(BaseSettings):
     )
 
 
+class GuardSettings(BaseSettings):
+    """阶段 4.1：发布前防幻觉护栏配置。
+
+    机器卡点不通过的事件不直发，统一打回 ``EventStatus.reviewing`` 进人工。
+    """
+
+    # 总开关：关闭则 publish 阶段直接放行（仅本地调试用）
+    enabled: bool = Field(default=True, validation_alias="RD_GUARD_ENABLED")
+    # 详情摘要里出现、但任一信源原文都查无的数字 token 超过该比例 → 拦截
+    max_unverified_number_ratio: float = Field(
+        default=0.5, validation_alias="RD_GUARD_MAX_UNVERIFIED_NUMBER_RATIO"
+    )
+    # card/detail 摘要最短中文字符数（过短视为生成异常）
+    min_summary_chars: int = Field(default=10, validation_alias="RD_GUARD_MIN_SUMMARY_CHARS")
+    # 敏感词命中即拦截（逗号分隔，可被环境变量覆盖）；默认取自内置基础词表
+    sensitive_words: str = Field(default="", validation_alias="RD_GUARD_SENSITIVE_WORDS")
+
+    model_config = SettingsConfigDict(
+        env_file=_ENV_FILE,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
+class AdminSettings(BaseSettings):
+    """阶段 4.2：CMS 质检后台接口鉴权（静态 Token 头校验）。"""
+
+    # 为空则质检接口拒绝所有请求（避免误开放）
+    token: str = Field(default="", validation_alias="RD_ADMIN_TOKEN")
+
+    model_config = SettingsConfigDict(
+        env_file=_ENV_FILE,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
+class CelerySettings(BaseSettings):
+    """阶段 4.3：Celery 调度配置（broker / backend 默认复用 Redis 不同 db）。"""
+
+    broker_url: str = Field(
+        default="redis://localhost:6379/1", validation_alias="CELERY_BROKER_URL"
+    )
+    result_backend: str = Field(
+        default="redis://localhost:6379/2", validation_alias="CELERY_RESULT_BACKEND"
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=_ENV_FILE,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
 class Settings(BaseSettings):
     """全局配置入口。"""
 
@@ -167,6 +221,9 @@ class Settings(BaseSettings):
     threshold: ThresholdSettings = Field(default_factory=ThresholdSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     ranking: RankingSettings = Field(default_factory=RankingSettings)
+    guard: GuardSettings = Field(default_factory=GuardSettings)
+    admin: AdminSettings = Field(default_factory=AdminSettings)
+    celery: CelerySettings = Field(default_factory=CelerySettings)
 
     model_config = SettingsConfigDict(
         env_file=_ENV_FILE,
@@ -186,4 +243,4 @@ def get_settings() -> Settings:
 settings = get_settings()
 
 
-__all__ = ["Settings", "LLMSettings", "ThresholdSettings", "EmbeddingSettings", "RankingSettings", "settings", "get_settings"]
+__all__ = ["Settings", "LLMSettings", "ThresholdSettings", "EmbeddingSettings", "RankingSettings", "GuardSettings", "AdminSettings", "CelerySettings", "settings", "get_settings"]

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from .routers import brief
+from .routers import brief, review
 
 app = FastAPI(
     title="热读 Content Engine API",
@@ -27,3 +27,4 @@ def healthz() -> dict:
 
 
 app.include_router(brief.router, prefix="/api/v1")
+app.include_router(review.router, prefix="/api/v1")
