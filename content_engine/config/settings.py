@@ -71,6 +71,10 @@ class ThresholdSettings(BaseSettings):
     source_failure_alert_threshold: int = Field(
         default=3, validation_alias="RD_SOURCE_FAILURE_ALERT_THRESHOLD"
     )
+    # 阶段 2.1：分类置信度低于此阈值时调用 LLM 兜底
+    cls_llm_threshold: float = Field(
+        default=0.6, validation_alias="RD_CLS_LLM_THRESHOLD"
+    )
 
     model_config = SettingsConfigDict(
         env_file=_ENV_FILE,

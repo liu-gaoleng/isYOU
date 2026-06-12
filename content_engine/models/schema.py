@@ -140,6 +140,12 @@ class Event(IdMixin, TimestampMixin, Base):
         _event_status_enum, nullable=False, default=EventStatus.clustered
     )
 
+    # 阶段 2.4 HDBSCAN 离线复核结果（仅打标，人工在 CMS 决策；不自动改归属）：
+    # - needs_split：复核时该事件被拆到 ≥2 个 HDBSCAN 簇且簇间余弦距离 > 0.3
+    # - suggested_merge_id：复核时与某事件被并到同一簇，建议合并到该 event_id（取较小 id）
+    needs_split: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    suggested_merge_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
     article_links: Mapped[list["EventArticle"]] = relationship(back_populates="event")
     contents: Mapped[list["EventContent"]] = relationship(back_populates="event")
     review_logs: Mapped[list["ReviewLog"]] = relationship(back_populates="event")

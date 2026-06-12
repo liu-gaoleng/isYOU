@@ -35,6 +35,8 @@ dependencies = [
     "uvicorn[standard]>=0.29.0",
     # Embedding（阶段 1.3：bge-small-zh-v1.5 本地推理）
     "sentence-transformers>=2.7.0",
+    # HDBSCAN 离线复核（阶段 2.4）
+    "scikit-learn>=1.4.0",
 ]
 
 [project.optional-dependencies]
