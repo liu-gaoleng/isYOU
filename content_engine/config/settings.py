@@ -38,6 +38,12 @@ class LLMSettings(BaseSettings):
     )
     model: str = Field(default="gpt-4o-mini", validation_alias="RD_LLM_MODEL")
 
+    # 阶段 3.1：调用韧性（令牌桶限流 + 重试 + 指数退避）
+    rate_per_sec: float = Field(default=3.0, validation_alias="RD_LLM_RATE_PER_SEC")
+    max_retries: int = Field(default=3, validation_alias="RD_LLM_MAX_RETRIES")
+    backoff_base: float = Field(default=1.0, validation_alias="RD_LLM_BACKOFF_BASE")
+    timeout: int = Field(default=60, validation_alias="RD_LLM_TIMEOUT")
+
     model_config = SettingsConfigDict(
         env_file=_ENV_FILE,
         env_file_encoding="utf-8",
@@ -128,6 +134,20 @@ class EmbeddingSettings(BaseSettings):
     )
 
 
+class RankingSettings(BaseSettings):
+    """阶段 3.4：Redis 榜单配置。"""
+
+    enabled: bool = Field(default=True, validation_alias="RD_RANK_ENABLED")
+    # 每个 ZSet 最多保留多少条（按 importance 裁剪）
+    keep_top: int = Field(default=500, validation_alias="RD_RANK_KEEP")
+
+    model_config = SettingsConfigDict(
+        env_file=_ENV_FILE,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
 class Settings(BaseSettings):
     """全局配置入口。"""
 
@@ -146,6 +166,7 @@ class Settings(BaseSettings):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     threshold: ThresholdSettings = Field(default_factory=ThresholdSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
+    ranking: RankingSettings = Field(default_factory=RankingSettings)
 
     model_config = SettingsConfigDict(
         env_file=_ENV_FILE,
@@ -165,4 +186,4 @@ def get_settings() -> Settings:
 settings = get_settings()
 
 
-__all__ = ["Settings", "LLMSettings", "ThresholdSettings", "EmbeddingSettings", "settings", "get_settings"]
+__all__ = ["Settings", "LLMSettings", "ThresholdSettings", "EmbeddingSettings", "RankingSettings", "settings", "get_settings"]

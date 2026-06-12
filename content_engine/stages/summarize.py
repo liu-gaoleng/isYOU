@@ -9,13 +9,17 @@
 - 同时把双摘要写入 event_contents.summary（兼容既有结构）；
 - 推进事件状态 clustered → summarized。
 
-阶段 3.1/3.2 会补：独立队列 + 限流退避 + 同事件未变化跳过 + LLM 留痕到 llm_meta。
+阶段 3.1（本次）：LLM 调用改走统一 ``services.llm_client``（限流 + 重试 + 退避）。
+阶段 3.2（本次）：同事件缓存 + 调用留痕：
+- 内容指纹 = sha1(排序后的成员 article_id 列表 + 主文章标题)；
+- 若该事件最新版 EventContent 的 ``llm_meta.fingerprint`` 与当前一致，跳过重算（不烧 token）；
+- 每次产出都把 fingerprint + prompt_version + usage 写进 llm_meta，便于成本核算与回放。
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
-import urllib.request
 from typing import Any
 
 from sqlalchemy import select
@@ -29,17 +33,28 @@ from content_engine.models import (
     SourceLevel,
     get_session,
 )
+from content_engine.services.llm_client import get_llm_client
 
 from .seed_data import LEVEL_WEIGHT
 from .utils import extractive_summary
 
 _DISCLAIMER = "本内容仅作信息聚合，不构成任何投资建议。"
 
+# Prompt 版本号：改 Prompt 时 +1，便于回放与 A/B（写进 llm_meta.prompt_version）
+SUMMARY_PROMPT_VERSION = "v1"
+
 # iOS 卡片流字段长度上限（中文字符数）
 CARD_SUMMARY_MAX_CHARS = 120
 # iOS 详情页推荐区间（中文字符数）
 DETAIL_SUMMARY_MIN_CHARS = 150
 DETAIL_SUMMARY_MAX_CHARS = 600
+
+
+def content_fingerprint(members: list[RawArticle], main: RawArticle) -> str:
+    """事件内容指纹：成员集合 + 主文章标题变化即触发重算。"""
+    ids = sorted(m.id for m in members if m.id is not None)
+    raw = json.dumps({"ids": ids, "title": main.title or ""}, ensure_ascii=False)
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 
 def _to_card_summary(detail_text: str) -> str:
@@ -112,27 +127,9 @@ def _summary_llm(members: list[RawArticle], main: RawArticle) -> dict[str, Any]:
         "{\"title\":\"\",\"card_summary\":\"\",\"detail_summary\":\"\",\"why_matters\":\"\"}\n\n"
         f"【多源原文】\n{sources_text}"
     )
-    payload = json.dumps(
-        {
-            "model": settings.llm.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.3,
-            "response_format": {"type": "json_object"},
-        }
-    ).encode("utf-8")
-    req = urllib.request.Request(
-        f"{settings.llm.base_url.rstrip('/')}/chat/completions",
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {settings.llm.api_key}",
-            "Content-Type": "application/json",
-        },
-    )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    content_str = data["choices"][0]["message"]["content"]
-    parsed = json.loads(content_str)
-
+    client = get_llm_client()
+    resp = client.chat_json(prompt, temperature=0.3)
+    parsed = json.loads(resp.content)
     card_raw = (parsed.get("card_summary") or "").strip()
     detail_raw = (parsed.get("detail_summary") or "").strip()
 
@@ -148,9 +145,10 @@ def _summary_llm(members: list[RawArticle], main: RawArticle) -> dict[str, Any]:
         "why_matters": (parsed.get("why_matters") or "").strip(),
         "method": "llm",
         "llm_meta": {
-            "model": settings.llm.model,
-            "usage": data.get("usage"),
+            "model": resp.model,
+            "usage": resp.usage,
             "temperature": 0.3,
+            "prompt_version": SUMMARY_PROMPT_VERSION,
         },
     }
 
@@ -170,8 +168,12 @@ def _needs_disclaimer(event: Event) -> bool:
     return event.module.value in {"finance", "macro"}
 
 
+def _latest_content(ev: Event) -> EventContent | None:
+    return max(ev.contents, key=lambda c: c.version) if ev.contents else None
+
+
 def run() -> dict:
-    stats = {"summarized": 0, "llm": 0, "extractive": 0}
+    stats = {"summarized": 0, "llm": 0, "extractive": 0, "skipped": 0}
     with get_session() as s:
         events = (
             s.execute(
@@ -185,6 +187,15 @@ def run() -> dict:
             if not members:
                 continue
             main = _pick_main(members)
+
+            # 阶段 3.2 同事件缓存：内容指纹未变则跳过重新生成（不烧 token）
+            fingerprint = content_fingerprint(members, main)
+            prev = _latest_content(ev)
+            if prev is not None and (prev.llm_meta or {}).get("fingerprint") == fingerprint:
+                ev.status = EventStatus.summarized
+                stats["skipped"] += 1
+                continue
+
             if settings.llm.enabled:
                 try:
                     summary = _summary_llm(members, main)
@@ -197,6 +208,11 @@ def run() -> dict:
                 summary = _summary_extractive(main)
                 stats["extractive"] += 1
 
+            # 阶段 3.2 留痕：指纹 + prompt 版本写进 llm_meta（抽取式 path 也记，usage 留空）
+            llm_meta = dict(summary["llm_meta"] or {})
+            llm_meta["fingerprint"] = fingerprint
+            llm_meta.setdefault("prompt_version", SUMMARY_PROMPT_VERSION)
+
             # event_contents.summary 列保留（兼容旧消费方）：
             # - LLM 路径：[card, detail] 两段，便于人工质检直接看长短两版；
             # - 抽取式路径：拆 detail 为 3 句句子列表（与旧版结构一致）。
@@ -207,9 +223,11 @@ def run() -> dict:
                     main.content or main.title, max_sentences=3
                 ) or [summary["detail_summary"]]
 
+            # 版本号递增：保留历史 EventContent 便于回放
+            next_version = (prev.version + 1) if prev else 1
             content = EventContent(
                 event_id=ev.id,
-                version=1,
+                version=next_version,
                 title=(summary["title"] or "")[:256],
                 summary=summary_list,
                 why_matters=summary["why_matters"]
@@ -217,7 +235,7 @@ def run() -> dict:
                 facts=[],
                 sources=_build_sources(members),
                 method=summary["method"],
-                llm_meta=summary["llm_meta"],
+                llm_meta=llm_meta,
             )
             s.add(content)
 
@@ -229,7 +247,7 @@ def run() -> dict:
             stats["summarized"] += 1
     print(
         f"  [summarize] 共 {stats['summarized']} 个事件  llm={stats['llm']}  "
-        f"extractive={stats['extractive']}"
+        f"extractive={stats['extractive']}  skipped={stats['skipped']}"
     )
     return stats
 

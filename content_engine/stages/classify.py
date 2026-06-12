@@ -1,8 +1,9 @@
 """阶段 3：分类（classify）。
 
 阶段 0：纯关键词规则（命中分数最高的模块即为分类结果，全 0 时回退到信源默认 module）。
-阶段 2.1（本次）：在规则层之上叠加 LLM 兜底——当规则置信度 <
+阶段 2.1：在规则层之上叠加 LLM 兜底——当规则置信度 <
 ``settings.threshold.cls_llm_threshold``（默认 0.6）时调 LLM 重判。
+阶段 3.1（本次）：LLM 调用改走统一的 ``services.llm_client``（限流 + 重试 + 退避）。
 
 LLM 协议（OpenAI 兼容 ``POST /v1/chat/completions``）：
 - 输入：title + content（最多 800 字）+ 当前规则候选 module（仅作 hint）；
@@ -18,13 +19,12 @@ LLM 协议（OpenAI 兼容 ``POST /v1/chat/completions``）：
 from __future__ import annotations
 
 import json
-import urllib.error
-import urllib.request
 
 from sqlalchemy import select
 
 from content_engine.config import settings
 from content_engine.models import ArticleStatus, Module, RawArticle, get_session
+from content_engine.services.llm_client import LLMError, get_llm_client
 
 from .seed_data import CLASSIFY_RULES
 
@@ -51,7 +51,8 @@ def _classify_llm(title: str, content: str, hint: Module) -> tuple[Module, float
 
     返回 (module, confidence, tags) 或 None（任何异常都视作失败、由调用方回退规则）。
     """
-    if not settings.llm.enabled:
+    client = get_llm_client()
+    if not client.enabled:
         return None
 
     excerpt = (content or "")[:_LLM_INPUT_MAX_CHARS]
@@ -71,27 +72,10 @@ def _classify_llm(title: str, content: str, hint: Module) -> tuple[Module, float
         '{"module":"tech|finance|ai|macro","tags":["..."],"confidence":0.0}\n\n'
         f"【标题】{title}\n【正文】{excerpt}"
     )
-    payload = json.dumps(
-        {
-            "model": settings.llm.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.0,
-            "response_format": {"type": "json_object"},
-        }
-    ).encode("utf-8")
-    req = urllib.request.Request(
-        f"{settings.llm.base_url.rstrip('/')}/chat/completions",
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {settings.llm.api_key}",
-            "Content-Type": "application/json",
-        },
-    )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        parsed = json.loads(data["choices"][0]["message"]["content"])
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, KeyError, ValueError):
+        resp = client.chat_json(prompt, temperature=0.0)
+        parsed = json.loads(resp.content)
+    except (LLMError, json.JSONDecodeError, ValueError):
         return None
 
     module_val = (parsed.get("module") or "").strip().lower()

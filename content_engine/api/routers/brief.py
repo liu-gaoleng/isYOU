@@ -17,6 +17,7 @@ from content_engine.models import (
     Module,
     get_session,
 )
+from content_engine.services import ranking
 
 from ..schemas import EventCard, EventDetail, EventSourceItem, FeedPage
 
@@ -152,6 +153,36 @@ def feed(
             _encode_cursor(page[-1].last_update, page[-1].id) if (has_more and page) else None
         )
         return FeedPage(items=items, next_cursor=next_cursor)
+
+
+@router.get("/ranking", response_model=list[EventCard])
+def ranking_top(
+    module: Optional[str] = Query(default=None, description="可选按模块过滤"),
+    limit: int = Query(default=10, ge=1, le=50),
+) -> list[EventCard]:
+    """热度榜单 TOP-N：优先读 Redis ZSet（O(logN)），Redis 不可用回退 DB importance 排序。"""
+    module_val = _parse_module(module).value if module else None
+    ids = ranking.top(module_val, limit)
+    with get_session() as s:
+        if ids:
+            events = s.execute(select(Event).where(Event.id.in_(ids))).scalars().all()
+            by_id = {ev.id: ev for ev in events}
+            ordered = [
+                by_id[i]
+                for i in ids
+                if i in by_id and by_id[i].status in _VISIBLE_STATUSES
+            ]
+            return [_to_card(ev) for ev in ordered]
+        stmt = (
+            select(Event)
+            .where(Event.status.in_(_VISIBLE_STATUSES))
+            .order_by(desc(Event.importance), desc(Event.last_update))
+            .limit(limit)
+        )
+        if module:
+            stmt = stmt.where(Event.module == _parse_module(module))
+        events = s.execute(stmt).scalars().all()
+        return [_to_card(ev) for ev in events]
 
 
 # ---------------------------------------------------------------------------
