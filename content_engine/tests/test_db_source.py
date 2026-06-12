@@ -71,6 +71,29 @@ def test_persist_functions_are_noop_when_disabled(ds):
     ds.persist_event_edit("evt_1001", title="x", summary=["a"], why_matters="y")
 
 
+def test_operational_persist_functions_noop_when_disabled(ds):
+    # 运营态写回在降级态同样应安静 no-op，不连接 DB
+    ds.persist_app_user("au_1", status="banned", tier="free", member_expire="")
+    ds.persist_member_add("u_x", "新人", "viewer", True)
+    ds.persist_member_update("u_1", name="改名", role="admin", enabled=False)
+    ds.persist_member_delete("u_9")
+    ds.persist_favorite("guest", "evt_1001", added=True)
+    ds.persist_favorite("guest", "evt_1001", added=False)
+    ds.persist_history_view("guest", "evt_1001", "2026-06-08T08:00:00Z")
+    ds.persist_history_clear("guest")
+    ds.persist_purchase("guest", "rpt_1", 299)
+    ds.persist_digest_config(enabled=False, top_n=3)
+    ds.persist_push_record({"push_id": "push_x", "event_id": "evt_1001",
+                            "title": "t", "audience": "all", "sent": 1, "opened": 0})
+
+
+def test_event_int_parsing(ds):
+    assert ds._event_int("evt_42") == 42
+    assert ds._event_int("evt_1001") == 1001
+    assert ds._event_int("not-an-event") is None
+    assert ds._event_int("") is None
+
+
 def test_ensure_seeded_noop_when_disabled(ds):
     # 不应连接 DB，安静返回
     ds.ensure_seeded()

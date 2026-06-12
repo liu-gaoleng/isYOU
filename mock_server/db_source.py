@@ -204,6 +204,14 @@ def _parse_db_id(evt_id: str) -> int | None:
     return val if DB_ENABLED else None
 
 
+def _event_int(evt_id: str) -> int | None:
+    """提取 evt_<int> 的整数部分（不判断是否真实 DB id），用于收藏/历史落库。"""
+    if not evt_id or not evt_id.startswith("evt_"):
+        return None
+    suffix = evt_id[4:]
+    return int(suffix) if suffix.isdigit() else None
+
+
 def persist_event_status(evt_id: str, status: str, reviewer: str, note: str | None) -> None:
     """写回事件状态变更 + ReviewLog（best-effort）。"""
     db_id = _parse_db_id(evt_id)
@@ -644,3 +652,188 @@ def load_history() -> dict[str, list[dict]]:
         except Exception as exc:  # noqa: BLE001
             print(f"[db_source] load_history 失败，回退 seed：{exc}")
     return {k: [dict(i) for i in v] for k, v in _SEED_HISTORY.items()}
+
+
+# ============================================================================
+# 运营态写回：把后台/ C 端操作持久化到 DB（best-effort，DB 不可用时 no-op）
+# ============================================================================
+def persist_app_user(biz_id: str, *, status=None, tier=None, member_expire=None) -> None:
+    """C 端用户运营动作落库（ban/unban/set_tier/extend 后由 server 传最终值）。"""
+    if not DB_ENABLED:
+        return
+    try:
+        from content_engine.models import AppUser, get_session
+
+        with get_session() as s:
+            u = s.query(AppUser).filter_by(biz_id=biz_id).first()
+            if u is None:
+                return
+            if status is not None:
+                u.status = status
+            if tier is not None:
+                u.tier = tier
+            if member_expire is not None:
+                u.member_expire = member_expire
+    except Exception as exc:  # noqa: BLE001
+        print(f"[db_source] persist_app_user 失败：{exc}")
+
+
+def persist_member_add(biz_id: str, name: str, role: str, enabled: bool) -> None:
+    if not DB_ENABLED:
+        return
+    try:
+        from content_engine.models import AdminMember, get_session
+
+        with get_session() as s:
+            s.add(AdminMember(biz_id=biz_id, name=name, role=role, enabled=enabled))
+    except Exception as exc:  # noqa: BLE001
+        print(f"[db_source] persist_member_add 失败：{exc}")
+
+
+def persist_member_update(biz_id: str, *, name=None, role=None, enabled=None) -> None:
+    if not DB_ENABLED:
+        return
+    try:
+        from content_engine.models import AdminMember, get_session
+
+        with get_session() as s:
+            m = s.query(AdminMember).filter_by(biz_id=biz_id).first()
+            if m is None:
+                return
+            if name is not None:
+                m.name = name
+            if role is not None:
+                m.role = role
+            if enabled is not None:
+                m.enabled = enabled
+    except Exception as exc:  # noqa: BLE001
+        print(f"[db_source] persist_member_update 失败：{exc}")
+
+
+def persist_member_delete(biz_id: str) -> None:
+    if not DB_ENABLED:
+        return
+    try:
+        from content_engine.models import AdminMember, get_session
+
+        with get_session() as s:
+            m = s.query(AdminMember).filter_by(biz_id=biz_id).first()
+            if m is not None:
+                s.delete(m)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[db_source] persist_member_delete 失败：{exc}")
+
+
+def persist_favorite(token: str, evt_id: str, added: bool) -> None:
+    """收藏增删落库（added=True 新增，False 移除）。"""
+    if not DB_ENABLED:
+        return
+    eid = _event_int(evt_id)
+    if eid is None:
+        return
+    try:
+        from content_engine.models import Favorite, get_session
+
+        with get_session() as s:
+            existing = s.query(Favorite).filter_by(token=token, event_id=eid).first()
+            if added and existing is None:
+                s.add(Favorite(token=token, event_id=eid))
+            elif not added and existing is not None:
+                s.delete(existing)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[db_source] persist_favorite 失败：{exc}")
+
+
+def persist_history_view(token: str, evt_id: str, viewed_at: str) -> None:
+    """阅读历史落库：同 token+event 去重后更新时间（最近在前由查询排序保证）。"""
+    if not DB_ENABLED:
+        return
+    eid = _event_int(evt_id)
+    if eid is None:
+        return
+    dt = _parse_dt(viewed_at) or datetime.now(timezone.utc)
+    try:
+        from content_engine.models import ReadingHistory, get_session
+
+        with get_session() as s:
+            row = s.query(ReadingHistory).filter_by(token=token, event_id=eid).first()
+            if row is None:
+                s.add(ReadingHistory(token=token, event_id=eid, viewed_at=dt))
+            else:
+                row.viewed_at = dt
+    except Exception as exc:  # noqa: BLE001
+        print(f"[db_source] persist_history_view 失败：{exc}")
+
+
+def persist_history_clear(token: str) -> None:
+    if not DB_ENABLED:
+        return
+    try:
+        from content_engine.models import ReadingHistory, get_session
+
+        with get_session() as s:
+            s.query(ReadingHistory).filter_by(token=token).delete()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[db_source] persist_history_clear 失败：{exc}")
+
+
+def persist_purchase(token: str, report_biz_id: str, amount: int) -> None:
+    if not DB_ENABLED:
+        return
+    try:
+        from content_engine.models import ReportPurchase, get_session
+
+        with get_session() as s:
+            existing = s.query(ReportPurchase).filter_by(
+                token=token, report_biz_id=report_biz_id
+            ).first()
+            if existing is None:
+                s.add(ReportPurchase(
+                    token=token, report_biz_id=report_biz_id, amount=amount,
+                    purchased_at=datetime.now(timezone.utc),
+                ))
+    except Exception as exc:  # noqa: BLE001
+        print(f"[db_source] persist_purchase 失败：{exc}")
+
+
+def persist_digest_config(**fields) -> None:
+    """保存定时早报配置（单行 upsert）。仅写入传入的键。"""
+    if not DB_ENABLED:
+        return
+    allowed = {"enabled", "send_time", "audience", "modules", "top_n", "title_template"}
+    try:
+        from content_engine.models import DigestConfig, get_session
+
+        with get_session() as s:
+            d = s.query(DigestConfig).first()
+            if d is None:
+                d = DigestConfig()
+                s.add(d)
+            for k, v in fields.items():
+                if k in allowed:
+                    setattr(d, k, v)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[db_source] persist_digest_config 失败：{exc}")
+
+
+def persist_push_record(rec: dict) -> None:
+    """新增一条推送历史（手动推送 / 每日早报手动触发）。"""
+    if not DB_ENABLED:
+        return
+    try:
+        from content_engine.models import PushRecord, get_session
+
+        with get_session() as s:
+            s.add(PushRecord(
+                biz_id=rec.get("push_id") or rec.get("biz_id"),
+                event_ref=rec.get("event_id") or rec.get("event_ref"),
+                type=rec.get("type", "manual"),
+                title=rec.get("title", ""),
+                audience=rec.get("audience", "all"),
+                pushed_at=_parse_dt(rec.get("pushed_at")) or datetime.now(timezone.utc),
+                sent=rec.get("sent", 0),
+                opened=rec.get("opened", 0),
+                event_ids=rec.get("event_ids", []),
+            ))
+    except Exception as exc:  # noqa: BLE001
+        print(f"[db_source] persist_push_record 失败：{exc}")

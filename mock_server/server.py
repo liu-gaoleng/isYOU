@@ -370,8 +370,10 @@ class Handler(BaseHTTPRequestHandler):
             # 记录阅读历史（去重后置顶，最多保留 50 条）
             hist = HISTORY.setdefault(token, [])
             hist[:] = [h for h in hist if h["event_id"] != eid]
-            hist.insert(0, {"event_id": eid, "viewed_at": _now()})
+            viewed_at = _now()
+            hist.insert(0, {"event_id": eid, "viewed_at": viewed_at})
             del hist[50:]
+            db_source.persist_history_view(token, eid, viewed_at)
             return self._send(detail)
 
         # 相关推荐
@@ -654,9 +656,11 @@ class Handler(BaseHTTPRequestHandler):
             if body.get("action") == "remove":
                 if eid in fav:
                     fav.remove(eid)
+                db_source.persist_favorite(token, eid, added=False)
                 return self._send({"is_favorited": False})
             if eid not in fav:
                 fav.insert(0, eid)
+            db_source.persist_favorite(token, eid, added=True)
             return self._send({"is_favorited": True})
 
         # 推送设置：更新
@@ -674,6 +678,7 @@ class Handler(BaseHTTPRequestHandler):
         # 阅读历史：清空
         if path == "/v1/me/history/clear":
             HISTORY[token] = []
+            db_source.persist_history_clear(token)
             return self._send({"cleared": True})
 
         # 下单
@@ -700,6 +705,7 @@ class Handler(BaseHTTPRequestHandler):
                 owned.append(r["id"])
             amount = 0 if (r["member_free"] and is_member) \
                 else (round(r["price"] * 0.8) if is_member else r["price"])
+            db_source.persist_purchase(token, r["id"], amount)
             return self._send({"order_id": "rord_" + uuid.uuid4().hex[:8],
                                "report_id": r["id"], "amount": amount, "owned": True})
 
@@ -730,12 +736,14 @@ class Handler(BaseHTTPRequestHandler):
                 aud = body.get("audience", "all")
                 # Mock 触达量：全量约 1.02 万，会员约 2300
                 sent = 10240 if aud == "all" else (2300 if aud == "member" else 7940)
-                PUSH_HISTORY.insert(0, {
+                rec = {
                     "push_id": "push_" + uuid.uuid4().hex[:8],
                     "event_id": eid, "title": e["title"], "type": "manual",
                     "pushed_at": _now(), "audience": aud,
                     "sent": sent, "opened": 0,    # 刚推送，打开数从 0 起
-                })
+                }
+                PUSH_HISTORY.insert(0, rec)
+                db_source.persist_push_record(rec)
             e["updated_at"] = _now()
             return self._send({"event_id": eid, "action": action, "status": e["status"],
                                "pinned": e["pinned"], "pushed": e["pushed"]})
@@ -793,6 +801,10 @@ class Handler(BaseHTTPRequestHandler):
                       "title_template"):
                 if k in body:
                     DIGEST_CONFIG[k] = body[k]
+            db_source.persist_digest_config(**{
+                k: DIGEST_CONFIG[k] for k in ("enabled", "send_time", "audience",
+                                              "modules", "top_n", "title_template")
+            })
             return self._send(DIGEST_CONFIG)
 
         # 立即发送一期早报（手动触发）
@@ -810,6 +822,7 @@ class Handler(BaseHTTPRequestHandler):
                 "event_ids": [e["event_id"] for e in pub],
             }
             PUSH_HISTORY.insert(0, rec)
+            db_source.persist_push_record(rec)
             return self._send(dict(rec, included=[
                 {"event_id": e["event_id"], "title": e["title"]} for e in pub]))
 
@@ -893,6 +906,7 @@ class Handler(BaseHTTPRequestHandler):
                 "enabled": bool(body.get("enabled", True)), "created_at": _now(),
             }
             ADMIN_USERS.append(rec)
+            db_source.persist_member_add(rec["id"], rec["name"], rec["role"], rec["enabled"])
             return self._send(dict(rec, role_name=ROLE_PERMS[role]["name"]))
 
         # RBAC：编辑成员（改角色 / 启停 / 改名）
@@ -908,6 +922,9 @@ class Handler(BaseHTTPRequestHandler):
                 user["role"] = body["role"]
             if "enabled" in body:
                 user["enabled"] = bool(body["enabled"])
+            db_source.persist_member_update(
+                user["id"], name=user["name"], role=user["role"], enabled=user["enabled"]
+            )
             return self._send(dict(user, role_name=ROLE_PERMS[user["role"]]["name"]))
 
         # RBAC：删除成员
@@ -924,6 +941,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(None, code=1002, http_status=400,
                                   message="至少保留一个超级管理员")
             ADMIN_USERS[:] = [u for u in ADMIN_USERS if u["id"] != target]
+            db_source.persist_member_delete(target)
             return self._send({"id": target, "deleted": True})
 
         # C 端用户运营：人工操作（封禁/解禁、调档、延长会员）
@@ -958,6 +976,10 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 return self._send(None, code=1002, http_status=400,
                                   message="未知操作")
+            db_source.persist_app_user(
+                user["id"], status=user["status"], tier=user["tier"],
+                member_expire=user.get("member_expire", ""),
+            )
             return self._send(dict(user))
 
         # 信源管理：编辑 / 调权重 / 启停
