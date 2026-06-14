@@ -187,3 +187,58 @@ def test_event_to_dict_without_content_uses_fallback(ds):
     assert d["summary"] == []
     assert d["deep_content_full"]  # 兜底深度全文
     assert d["disclaimer"] == ""   # 科技无免责
+
+
+# ---------------------------------------------------------------------------
+# 阶段 4.4 健壮性修复（SQLite in-memory，仅建运营态表，避开 pgvector）
+# ---------------------------------------------------------------------------
+@pytest.fixture
+def ops_session():
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from content_engine.models import DigestConfig, PushRecord
+
+    engine = create_engine("sqlite://", future=True)
+    PushRecord.__table__.create(engine)
+    DigestConfig.__table__.create(engine)
+    SessionLocal = sessionmaker(engine, expire_on_commit=False)
+    s = SessionLocal()
+    try:
+        yield s
+    finally:
+        s.close()
+
+
+def test_pushed_refs_include_batch_event_ids(ds, ops_session):
+    """早报批量推送：event_ids(JSON 数组) 里的每个事件都应被视为已推送。"""
+    from content_engine.models import PushRecord
+
+    # 单事件手动推送 + 批量早报推送（多事件存 event_ids）
+    ops_session.add(PushRecord(
+        biz_id="push_a", event_ref="101", type="manual",
+        title="单条", audience="all", sent=1, opened=0, event_ids=[],
+    ))
+    ops_session.add(PushRecord(
+        biz_id="push_b", event_ref=None, type="daily",
+        title="早报", audience="all", sent=2, opened=0, event_ids=[201, 202, 203],
+    ))
+    ops_session.commit()
+
+    refs = ds._pushed_event_refs(ops_session)
+    # 单事件 ref + 批量 event_ids 全部覆盖
+    assert refs == {"101", "201", "202", "203"}
+
+
+def test_digest_config_singleton_constraint(ops_session):
+    """digest_config 单例守卫：插入第二行应被唯一约束拦截。"""
+    from sqlalchemy.exc import IntegrityError
+
+    from content_engine.models import DigestConfig
+
+    ops_session.add(DigestConfig(modules=["tech"], title_template="t"))
+    ops_session.commit()
+
+    ops_session.add(DigestConfig(modules=["ai"], title_template="t2"))
+    with pytest.raises(IntegrityError):
+        ops_session.commit()

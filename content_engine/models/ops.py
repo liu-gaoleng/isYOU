@@ -154,10 +154,15 @@ class PushRecord(IdMixin, TimestampMixin, Base):
 # 定时早报配置（单行）
 # ----------------------------------------------------------------------------
 class DigestConfig(IdMixin, TimestampMixin, Base):
-    """每日早报推送配置，全表仅一行（id=1）。"""
+    """每日早报推送配置，全表仅一行（由 singleton 唯一约束强制单例）。"""
 
     __tablename__ = "digest_config"
+    __table_args__ = (
+        UniqueConstraint("singleton", name="uq_digest_config_singleton"),
+    )
 
+    # 单例守卫：固定为 True，配合唯一约束保证全表至多一行（防并发/误插多行）
+    singleton: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     send_time: Mapped[str] = mapped_column(String(8), nullable=False, default="08:00")
     # all / member / free

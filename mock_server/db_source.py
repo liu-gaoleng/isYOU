@@ -131,10 +131,15 @@ def _pushed_event_refs(s) -> set[str]:
     try:
         from content_engine.models import PushRecord
 
-        refs = set()
-        for p in s.query(PushRecord.event_ref).all():
-            if p[0]:
-                refs.add(str(p[0]))
+        refs: set[str] = set()
+        # 单事件推送（手动推送写 event_ref）+ 批量早报推送（event_ids JSON 数组）
+        for event_ref, event_ids in s.query(
+            PushRecord.event_ref, PushRecord.event_ids
+        ).all():
+            if event_ref:
+                refs.add(str(event_ref))
+            for eid in event_ids or []:
+                refs.add(str(eid))
         return refs
     except Exception:  # noqa: BLE001
         return set()
