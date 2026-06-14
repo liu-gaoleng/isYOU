@@ -45,6 +45,24 @@ class LLMResponse:
     content: str
     model: str
     usage: dict | None = field(default=None)
+    # 阶段 D：按 settings 单价换算的本次调用成本（美元），未配置单价时为 0.0
+    cost: float = field(default=0.0)
+
+
+def estimate_cost(usage: dict | None, cost_per_1k_prompt: float,
+                  cost_per_1k_completion: float) -> float:
+    """按 token 用量与单价（美元/千 token）换算调用成本。
+
+    usage 缺字段时按 0 计；单价默认 0 则恒返回 0（仅累计 token，不计费）。
+    """
+    if not usage:
+        return 0.0
+    prompt = usage.get("prompt_tokens") or 0
+    completion = usage.get("completion_tokens") or 0
+    cost = (prompt / 1000.0) * cost_per_1k_prompt + (
+        completion / 1000.0
+    ) * cost_per_1k_completion
+    return round(cost, 6)
 
 
 class _TokenBucket:
@@ -89,6 +107,8 @@ class LLMClient:
         max_retries: int,
         backoff_base: float,
         timeout: int,
+        cost_per_1k_prompt: float = 0.0,
+        cost_per_1k_completion: float = 0.0,
     ):
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
@@ -96,6 +116,8 @@ class LLMClient:
         self._max_retries = max_retries
         self._backoff_base = backoff_base
         self._timeout = timeout
+        self._cost_per_1k_prompt = cost_per_1k_prompt
+        self._cost_per_1k_completion = cost_per_1k_completion
         self._bucket = _TokenBucket(rate_per_sec)
 
     @property
@@ -156,7 +178,11 @@ class LLMClient:
             content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as e:
             raise LLMError(f"malformed LLM response: {e}") from e
-        return LLMResponse(content=content, model=self._model, usage=data.get("usage"))
+        usage = data.get("usage")
+        cost = estimate_cost(
+            usage, self._cost_per_1k_prompt, self._cost_per_1k_completion
+        )
+        return LLMResponse(content=content, model=self._model, usage=usage, cost=cost)
 
     def _sleep_backoff(self, attempt: int) -> None:
         delay = self._backoff_base * (2**attempt) + random.uniform(0, 0.5)
@@ -178,7 +204,9 @@ def get_llm_client() -> LLMClient:
         max_retries=settings.llm.max_retries,
         backoff_base=settings.llm.backoff_base,
         timeout=settings.llm.timeout,
+        cost_per_1k_prompt=settings.llm.cost_per_1k_prompt,
+        cost_per_1k_completion=settings.llm.cost_per_1k_completion,
     )
 
 
-__all__ = ["LLMClient", "LLMResponse", "LLMError", "get_llm_client"]
+__all__ = ["LLMClient", "LLMResponse", "LLMError", "estimate_cost", "get_llm_client"]

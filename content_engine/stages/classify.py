@@ -23,10 +23,13 @@ import json
 from sqlalchemy import select
 
 from content_engine.config import settings
+from content_engine.logging_config import get_logger
 from content_engine.models import ArticleStatus, Module, RawArticle, get_session
 from content_engine.services.llm_client import LLMError, get_llm_client
 
 from .seed_data import CLASSIFY_RULES
+
+_logger = get_logger(__name__)
 
 # LLM Prompt 中传给模型的正文最大字符数（避免长文导致 token 暴涨）
 _LLM_INPUT_MAX_CHARS = 800
@@ -46,10 +49,13 @@ def classify_one(title: str, content: str, fallback: Module) -> tuple[Module, fl
     return best, round(scores[best] / total, 2) if total else 0.5
 
 
-def _classify_llm(title: str, content: str, hint: Module) -> tuple[Module, float, list[str]] | None:
+def _classify_llm(
+    title: str, content: str, hint: Module
+) -> tuple[Module, float, list[str], dict] | None:
     """调用 LLM 给低置信文章重判。
 
-    返回 (module, confidence, tags) 或 None（任何异常都视作失败、由调用方回退规则）。
+    返回 (module, confidence, tags, meta) 或 None（任何异常都视作失败、由调用方回退规则）。
+    meta 含本次调用的 usage/cost/model，供阶段埋点累计 LLM 成本（classify 无 llm_meta 落点）。
     """
     client = get_llm_client()
     if not client.enabled:
@@ -90,7 +96,8 @@ def _classify_llm(title: str, content: str, hint: Module) -> tuple[Module, float
     if not isinstance(tags, list):
         tags = []
     tags = [str(t).strip() for t in tags if str(t).strip()][:3]
-    return Module(module_val), round(conf, 2), tags
+    meta = {"usage": resp.usage, "cost": resp.cost, "model": resp.model}
+    return Module(module_val), round(conf, 2), tags, meta
 
 
 def run() -> dict:
@@ -101,6 +108,9 @@ def run() -> dict:
         "llm_called": 0,
         "llm_overrode": 0,
         "llm_failed": 0,
+        "llm_prompt_tokens": 0,
+        "llm_completion_tokens": 0,
+        "llm_cost": 0.0,
         "by_module": {},
     }
     with get_session() as s:
@@ -124,11 +134,15 @@ def run() -> dict:
                     stats["llm_failed"] += 1
                     art.last_error = (art.last_error or "") + " | classify_llm_failed"
                 else:
-                    new_module, new_conf, new_tags = llm_out
+                    new_module, new_conf, new_tags, meta = llm_out
                     if new_module != module or new_conf > conf:
                         stats["llm_overrode"] += 1
                     module, conf = new_module, new_conf
                     tags = new_tags
+                    usage = meta.get("usage") or {}
+                    stats["llm_prompt_tokens"] += usage.get("prompt_tokens") or 0
+                    stats["llm_completion_tokens"] += usage.get("completion_tokens") or 0
+                    stats["llm_cost"] = round(stats["llm_cost"] + (meta.get("cost") or 0.0), 6)
             else:
                 stats["rule_only"] += 1
 
@@ -139,10 +153,12 @@ def run() -> dict:
             art.status = ArticleStatus.classified
             stats["by_module"][module.value] = stats["by_module"].get(module.value, 0) + 1
             stats["classified"] += 1
-    print(
-        f"  [classify] {stats['classified']} 条  分布={stats['by_module']}  "
-        f"rule_only={stats['rule_only']}  llm_called={stats['llm_called']}  "
-        f"llm_overrode={stats['llm_overrode']}  llm_failed={stats['llm_failed']}"
+    _logger.info(
+        "[classify] %d 条  分布=%s  rule_only=%d  llm_called=%d  llm_overrode=%d  "
+        "llm_failed=%d  tokens=%d/%d  cost=$%.4f",
+        stats["classified"], stats["by_module"], stats["rule_only"],
+        stats["llm_called"], stats["llm_overrode"], stats["llm_failed"],
+        stats["llm_prompt_tokens"], stats["llm_completion_tokens"], stats["llm_cost"],
     )
     return stats
 

@@ -7,6 +7,7 @@
 from .base import Base, IdMixin, TimestampMixin
 from .db import get_engine, get_session
 from .enums import ArticleStatus, EventStatus, Module, SourceLevel
+from .observability import PipelineRun
 from .ops import (
     AdminMember,
     AppOrder,
@@ -55,6 +56,7 @@ __all__ = [
     "AdminMember",
     "Favorite",
     "ReadingHistory",
+    "PipelineRun",
     "EMBEDDING_DIM",
     "get_engine",
     "get_session",

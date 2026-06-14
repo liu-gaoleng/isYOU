@@ -14,6 +14,9 @@ from celery import Celery
 from celery.schedules import crontab
 
 from content_engine.config import settings
+from content_engine.logging_config import configure_logging
+
+configure_logging()
 
 celery_app = Celery(
     "content_engine",

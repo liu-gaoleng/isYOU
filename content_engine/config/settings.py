@@ -44,6 +44,15 @@ class LLMSettings(BaseSettings):
     backoff_base: float = Field(default=1.0, validation_alias="RD_LLM_BACKOFF_BASE")
     timeout: int = Field(default=60, validation_alias="RD_LLM_TIMEOUT")
 
+    # 阶段 D：成本核算单价（美元/千 token）。默认 0 表示不计费（仅累计 token）；
+    # 配置后由 llm_client 按 usage 自动换算 cost，写入 llm_meta 供成本看板聚合。
+    cost_per_1k_prompt: float = Field(
+        default=0.0, validation_alias="RD_LLM_COST_PER_1K_PROMPT"
+    )
+    cost_per_1k_completion: float = Field(
+        default=0.0, validation_alias="RD_LLM_COST_PER_1K_COMPLETION"
+    )
+
     model_config = SettingsConfigDict(
         env_file=_ENV_FILE,
         env_file_encoding="utf-8",

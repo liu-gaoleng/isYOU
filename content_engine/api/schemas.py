@@ -90,3 +90,70 @@ class ReviewActionResponse(BaseModel):
     action: str
     status: str
     log_id: int
+
+
+# ---------------------------------------------------------------------------
+# 阶段 D：可观测性报表 schema
+# ---------------------------------------------------------------------------
+class DailyCount(BaseModel):
+    """按日聚合的计数（YYYY-MM-DD → count）。"""
+
+    date: str
+    count: int
+
+
+class ConfidenceBuckets(BaseModel):
+    """分类置信度分布（规则/LLM 分类结果的健康度）。"""
+
+    high: int = 0  # >= 0.8
+    mid: int = 0  # 0.5 ~ 0.8
+    low: int = 0  # < 0.5
+    unknown: int = 0  # 尚未分类（cls_confidence 为空）
+
+
+class SourceHealthCount(BaseModel):
+    """信源健康状态聚合。"""
+
+    status_counts: dict[str, int] = Field(default_factory=dict)
+    failing_sources: int = 0  # 最近一次记录连续失败 > 0 的信源数
+
+
+class MetricsOverview(BaseModel):
+    """可观测性总览看板（报表首页）。"""
+
+    generated_at: datetime
+    window_days: int
+    # 产出量
+    events_total: int = 0
+    events_by_status: dict[str, int] = Field(default_factory=dict)
+    events_by_module: dict[str, int] = Field(default_factory=dict)
+    daily_published: list[DailyCount] = Field(default_factory=list)
+    # 质检
+    review_action_counts: dict[str, int] = Field(default_factory=dict)
+    review_pass_rate: float = 0.0
+    # 护栏
+    guard_checked: int = 0
+    guard_intercepted: int = 0
+    guard_interception_rate: float = 0.0
+    # 分类置信度
+    classification_confidence: ConfidenceBuckets = Field(default_factory=ConfidenceBuckets)
+    # 信源健康
+    source_health: SourceHealthCount = Field(default_factory=SourceHealthCount)
+    # LLM 成本 & 管线
+    llm_cost_total: float = 0.0
+    pipeline_runs_total: int = 0
+    pipeline_success_rate: float = 0.0
+
+
+class PipelineRunItem(BaseModel):
+    """单次管线运行记录（运行历史报表）。"""
+
+    id: int
+    trigger: str
+    status: str
+    started_at: datetime
+    finished_at: datetime | None = None
+    duration_ms: int | None = None
+    llm_cost: float = 0.0
+    error: str | None = None
+    stages: dict = Field(default_factory=dict)

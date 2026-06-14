@@ -87,10 +87,11 @@ def test_llm_normal_return(monkeypatch):
     )
     result = _classify_llm("某 AI 文章", "正文……", Module.tech)
     assert result is not None
-    module, conf, tags = result
+    module, conf, tags, meta = result
     assert module == Module.ai
     assert conf == pytest.approx(0.88)
     assert tags == ["大模型", "推理", "Agent"]
+    assert "cost" in meta
 
 
 def test_llm_clamps_out_of_range_confidence(monkeypatch):
@@ -99,5 +100,5 @@ def test_llm_clamps_out_of_range_confidence(monkeypatch):
         monkeypatch,
         content=json.dumps({"module": "ai", "confidence": 1.5, "tags": []}),
     )
-    _, conf, _ = _classify_llm("t", "c", Module.tech)
+    _, conf, _, _ = _classify_llm("t", "c", Module.tech)
     assert conf == 1.0
