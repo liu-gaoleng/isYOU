@@ -7,7 +7,7 @@ import json
 from datetime import date, datetime, time, timezone
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, select
 
 from content_engine.models import (
@@ -15,11 +15,13 @@ from content_engine.models import (
     EventContent,
     EventStatus,
     Module,
+    User,
     get_session,
 )
 from content_engine.services import ranking
 
-from ..schemas import EventCard, EventDetail, EventSourceItem, FeedPage
+from ..deps import get_optional_user, is_member
+from ..schemas import DeepContent, EventCard, EventDetail, EventSourceItem, FeedPage
 
 router = APIRouter(tags=["events"])
 
@@ -38,6 +40,24 @@ def _latest_content(ev: Event) -> EventContent | None:
     return max(ev.contents, key=lambda c: c.version)
 
 
+# 付费墙：非会员可见的深度内容预览长度（中文字符）与引导文案
+_PAYWALL_PREVIEW_CHARS = 80
+_PAYWALL = {"required_tier": "member", "cta": "开通会员，解锁完整深度解读"}
+
+
+def _build_deep_content(content: EventContent | None, member: bool) -> DeepContent | None:
+    """按会员态裁剪付费深度内容（服务端截断，非会员永远拿不到全文）。"""
+    if content is None or not content.deep_content:
+        return None
+    full = content.deep_content
+    if member:
+        return DeepContent(is_locked=False, content=full)
+    preview = full[:_PAYWALL_PREVIEW_CHARS]
+    if len(full) > _PAYWALL_PREVIEW_CHARS:
+        preview += "……"
+    return DeepContent(is_locked=True, preview=preview, paywall=dict(_PAYWALL))
+
+
 def _to_card(ev: Event) -> EventCard:
     content = _latest_content(ev)
     return EventCard(
@@ -53,7 +73,7 @@ def _to_card(ev: Event) -> EventCard:
     )
 
 
-def _to_detail(ev: Event) -> EventDetail:
+def _to_detail(ev: Event, member: bool = False) -> EventDetail:
     content = _latest_content(ev)
     sources_payload: list[EventSourceItem] = []
     if content and content.sources:
@@ -79,6 +99,7 @@ def _to_detail(ev: Event) -> EventDetail:
         hotness=ev.hotness,
         source_count=ev.source_count,
         sources=sources_payload,
+        deep_content=_build_deep_content(content, member),
         first_seen=ev.first_seen,
         last_update=ev.last_update,
     )
@@ -112,13 +133,17 @@ def daily_brief(
 
 
 @router.get("/event/{event_id}", response_model=EventDetail)
-def event_detail(event_id: int) -> EventDetail:
-    """事件详情：含 detail_summary、信源列表。"""
+def event_detail(
+    event_id: int,
+    user: User | None = Depends(get_optional_user),
+) -> EventDetail:
+    """事件详情：含 detail_summary、信源列表、按会员态裁剪的深度解读。"""
+    member = is_member(user)
     with get_session() as s:
         ev = s.get(Event, event_id)
         if ev is None or ev.status not in _VISIBLE_STATUSES:
             raise HTTPException(status_code=404, detail="event not found")
-        return _to_detail(ev)
+        return _to_detail(ev, member=member)
 
 
 @router.get("/feed", response_model=FeedPage)

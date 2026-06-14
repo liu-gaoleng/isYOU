@@ -284,6 +284,14 @@ class User(IdMixin, TimestampMixin, Base):
     # 用户昵称（可由 Apple 首次登录时携带，仅首次返回）
     display_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
+    # 阶段 3.2：会员态（付费墙判定的唯一依据，落在登录用户身上）
+    # free / member
+    member_tier: Mapped[str] = mapped_column(String(16), nullable=False, default="free")
+    # 会员到期时间；为空或已过期视为非会员（即便 tier=member 也以此为准）
+    member_expire_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
 
 __all__ = [
     "Source",

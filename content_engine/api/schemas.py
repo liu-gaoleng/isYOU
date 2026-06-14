@@ -27,6 +27,20 @@ class EventSourceItem(BaseModel):
     url: str
 
 
+class DeepContent(BaseModel):
+    """付费深度解读（服务端按会员态裁剪）。
+
+    - 会员：``is_locked=False`` + 完整 ``content``；
+    - 非会员/未登录：``is_locked=True`` + 截断 ``preview`` + ``paywall`` 引导。
+    正文 content 仅在解锁时下发，非会员永远拿不到全文（防客户端绕过）。
+    """
+
+    is_locked: bool
+    content: str | None = None
+    preview: str | None = None
+    paywall: dict | None = None
+
+
 class EventDetail(BaseModel):
     """事件详情页。"""
 
@@ -40,6 +54,7 @@ class EventDetail(BaseModel):
     hotness: float = 0.5
     source_count: int = 1
     sources: list[EventSourceItem] = Field(default_factory=list)
+    deep_content: DeepContent | None = None
     first_seen: datetime
     last_update: datetime
 
@@ -49,6 +64,48 @@ class FeedPage(BaseModel):
 
     items: list[EventCard]
     next_cursor: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# 阶段 3.1：账号鉴权 schema（Sign in with Apple + 本地 JWT）
+# ---------------------------------------------------------------------------
+class AppleLoginRequest(BaseModel):
+    """Sign in with Apple 登录请求：客户端上送 Apple identityToken。"""
+
+    identity_token: str = Field(min_length=1, description="Apple 签发的 identityToken(JWT)")
+    # 首次登录时 Apple 可能携带昵称，仅首次返回，后端首登时落库
+    display_name: str | None = Field(default=None, max_length=64)
+
+
+class DevLoginRequest(BaseModel):
+    """dev 测试登录（仅本地联调，受 RD_AUTH_DEV_LOGIN_ENABLED 开关保护）。"""
+
+    apple_user_id: str = Field(min_length=1, max_length=64, description="模拟的 Apple sub")
+    email: str | None = Field(default=None, max_length=256)
+    display_name: str | None = Field(default=None, max_length=64)
+    # 可选：直接置为会员，便于联调付费墙解锁态
+    as_member: bool = False
+
+
+class UserProfile(BaseModel):
+    """当前登录用户信息。"""
+
+    id: int
+    email: str | None = None
+    display_name: str | None = None
+    created_via: str = "apple"
+    member_tier: str = "free"
+    is_member: bool = False
+    member_expire_at: datetime | None = None
+
+
+class LoginResponse(BaseModel):
+    """登录成功响应：本地 access token + 用户信息。"""
+
+    access_token: str
+    token_type: str = "Bearer"
+    expires_in: int
+    user: UserProfile
 
 
 # ---------------------------------------------------------------------------

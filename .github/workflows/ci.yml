@@ -37,7 +37,7 @@ jobs:
         run: |
           ruff check content_engine
 
-      - name: Pytest (41 cases)
+      - name: Pytest
         run: |
           pytest content_engine/tests -q
 

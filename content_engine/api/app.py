@@ -10,9 +10,10 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from ..logging_config import configure_logging
-from .routers import brief, metrics, review
+from .routers import auth, brief, metrics, review
 
 configure_logging()
 
@@ -22,6 +23,16 @@ app = FastAPI(
     description="iOS-first 内容引擎只读接口（阶段 1.5）",
 )
 
+# CORS：iOS 原生客户端不受同源限制，但 CMS / 原型页（浏览器）联调需要。
+# 本地全开；上线收敛到具体域名（通过环境变量或部署层网关控制）。
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/healthz", tags=["meta"])
 def healthz() -> dict:
@@ -29,6 +40,7 @@ def healthz() -> dict:
     return {"status": "ok"}
 
 
+app.include_router(auth.router, prefix="/api/v1")
 app.include_router(brief.router, prefix="/api/v1")
 app.include_router(review.router, prefix="/api/v1")
 app.include_router(metrics.router, prefix="/api/v1")

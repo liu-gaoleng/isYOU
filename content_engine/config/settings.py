@@ -194,6 +194,50 @@ class AdminSettings(BaseSettings):
     )
 
 
+class AuthSettings(BaseSettings):
+    """阶段 3.1：C 端账号鉴权（Sign in with Apple + 本地 JWT）。
+
+    - Sign in with Apple：客户端拿到 identityToken（Apple 签发的 JWT）后传给后端，
+      后端用 Apple 公钥（JWKS）验签，校验 iss/aud/exp，取 sub 作为 apple_user_id；
+    - 本地 JWT：验签通过后由后端签发 HS256 access token，后续接口用它鉴权。
+    铁律：密钥来自环境变量，绝不硬编码；dev_login 默认关闭，仅本地联调临时开启。
+    """
+
+    # 本地 JWT 签名密钥（HS256）。为空则签发/校验直接拒绝（避免空密钥裸奔）。
+    jwt_secret: str = Field(default="", validation_alias="RD_AUTH_JWT_SECRET")
+    # access token 有效期（分钟）
+    jwt_expire_minutes: int = Field(
+        default=43200, validation_alias="RD_AUTH_JWT_EXPIRE_MINUTES"
+    )
+    # 本地 JWT 的 issuer 标识
+    jwt_issuer: str = Field(default="redu", validation_alias="RD_AUTH_JWT_ISSUER")
+
+    # Sign in with Apple 校验参数
+    apple_bundle_id: str = Field(default="", validation_alias="RD_AUTH_APPLE_BUNDLE_ID")
+    apple_issuer: str = Field(
+        default="https://appleid.apple.com", validation_alias="RD_AUTH_APPLE_ISSUER"
+    )
+    apple_jwks_url: str = Field(
+        default="https://appleid.apple.com/auth/keys",
+        validation_alias="RD_AUTH_APPLE_JWKS_URL",
+    )
+    # Apple JWKS 本地缓存秒数（公钥很少轮换，缓存避免每次登录都拉取）
+    apple_jwks_cache_ttl: int = Field(
+        default=86400, validation_alias="RD_AUTH_APPLE_JWKS_CACHE_TTL"
+    )
+
+    # dev 测试登录通道开关：开启后 /auth/dev-login 可不经 Apple 直接签发 JWT（仅本地联调）
+    dev_login_enabled: bool = Field(
+        default=False, validation_alias="RD_AUTH_DEV_LOGIN_ENABLED"
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=_ENV_FILE,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
 class CelerySettings(BaseSettings):
     """阶段 4.3：Celery 调度配置（broker / backend 默认复用 Redis 不同 db）。"""
 
@@ -232,6 +276,7 @@ class Settings(BaseSettings):
     ranking: RankingSettings = Field(default_factory=RankingSettings)
     guard: GuardSettings = Field(default_factory=GuardSettings)
     admin: AdminSettings = Field(default_factory=AdminSettings)
+    auth: AuthSettings = Field(default_factory=AuthSettings)
     celery: CelerySettings = Field(default_factory=CelerySettings)
 
     model_config = SettingsConfigDict(
@@ -252,4 +297,4 @@ def get_settings() -> Settings:
 settings = get_settings()
 
 
-__all__ = ["Settings", "LLMSettings", "ThresholdSettings", "EmbeddingSettings", "RankingSettings", "GuardSettings", "AdminSettings", "CelerySettings", "settings", "get_settings"]
+__all__ = ["Settings", "LLMSettings", "ThresholdSettings", "EmbeddingSettings", "RankingSettings", "GuardSettings", "AdminSettings", "AuthSettings", "CelerySettings", "settings", "get_settings"]
