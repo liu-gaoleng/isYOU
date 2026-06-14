@@ -65,3 +65,35 @@ jobs:
           tags: redu/content-engine:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  ios-build:
+    name: iOS build (Xcode)
+    runs-on: macos-15
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      # 用通用 iOS 模拟器目标编译，不指定具体机型，避免 runner 镜像机型差异导致失败。
+      # CODE_SIGNING_ALLOWED=NO：CI 无证书，只验证可编译，不做签名。
+      - name: Build (iOS Simulator)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project ReDu.xcodeproj \
+            -scheme ReDu \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
