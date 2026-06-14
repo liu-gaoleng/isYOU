@@ -43,4 +43,14 @@ eval_classify_sample*.csv
 celerybeat-schedule.db
 celerybeat-schedule
 
+# iOS / Xcode（构建产物与用户态文件不入库；工程与源码入库）
+ios/**/build/
+ios/**/DerivedData/
+ios/**/*.xcuserstate
+ios/**/xcuserdata/
+ios/**/.swiftpm/
+ios/**/*.xcscmblueprint
+*.ipa
+*.dSYM.zip
+
 # Alembic 自动生成的版本暂不忽略（需要纳入版本管理）
