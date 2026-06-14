@@ -39,4 +39,8 @@ redisdata/
 # 评测抽样导出（含采样正文，按需本地生成，不入库）
 eval_classify_sample*.csv
 
+# Celery beat 本地调度状态（运行时生成，不入库）
+celerybeat-schedule.db
+celerybeat-schedule
+
 # Alembic 自动生成的版本暂不忽略（需要纳入版本管理）

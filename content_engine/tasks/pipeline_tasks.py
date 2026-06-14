@@ -78,10 +78,16 @@ def pipeline_chain():
 
 
 @celery_app.task(name="content_engine.tasks.pipeline_tasks.collect_and_process")
-def collect_and_process() -> str:
-    """beat 周期入口：异步触发一次全链路 chain，返回 chain 的 root id。"""
-    result = pipeline_chain().apply_async()
-    return result.id
+def collect_and_process() -> dict:
+    """beat 周期入口：顺序执行全链路并落库 pipeline_runs（可观测埋点）。
+
+    走 ``run_all`` 而非 chain：worker concurrency=1、阶段间靠 status 衔接，
+    顺序执行与 chain 等效，但 run_all 自带逐阶段计时 + pipeline_runs 落库，
+    灰度日更的运行历史/耗时/LLM 成本可直接进 metrics 看板。
+    """
+    from content_engine.stages.run_all import run_all
+
+    return run_all(trigger="beat")
 
 
 @celery_app.task(name="content_engine.tasks.pipeline_tasks.daily_recluster")
