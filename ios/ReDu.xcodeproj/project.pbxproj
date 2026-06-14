@@ -10,10 +10,21 @@
 		A0000000000000000000F001 /* ReDu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ReDu.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A0000000000000000000A901 /* Exceptions for "ReDu" folder in "ReDu" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Resources/Info.plist,
+			);
+			target = A0000000000000000000B101 /* ReDu */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A0000000000000000000A001 /* ReDu */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				A0000000000000000000A901 /* Exceptions for "ReDu" folder in "ReDu" target */,
 			);
 			path = ReDu;
 			sourceTree = "<group>";
