@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import random
+import ssl
 import threading
 import time
 import urllib.error
@@ -34,6 +35,21 @@ from content_engine.config import settings
 
 # 触发重试的 HTTP 状态码（429 限流 + 5xx 服务端临时故障）
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+
+def _build_ssl_context() -> ssl.SSLContext:
+    """构造校验用 SSL context。
+
+    优先用 certifi 的 CA bundle：python.org 版 Python 在 macOS 上默认证书路径
+    （/Library/.../etc/openssl/cert.pem）常缺失，导致 CERTIFICATE_VERIFY_FAILED。
+    certifi 未装时回退系统默认（仍开启校验，绝不关闭）。
+    """
+    try:
+        import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
 
 
 class LLMError(Exception):
@@ -119,6 +135,7 @@ class LLMClient:
         self._cost_per_1k_prompt = cost_per_1k_prompt
         self._cost_per_1k_completion = cost_per_1k_completion
         self._bucket = _TokenBucket(rate_per_sec)
+        self._ssl_context = _build_ssl_context()
 
     @property
     def enabled(self) -> bool:
@@ -165,7 +182,9 @@ class LLMClient:
             },
         )
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+            with urllib.request.urlopen(
+                req, timeout=self._timeout, context=self._ssl_context
+            ) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             if e.code in _RETRYABLE_STATUS:

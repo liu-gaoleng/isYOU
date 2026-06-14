@@ -17,7 +17,7 @@ import pytest
 from content_engine.models import Module
 from content_engine.services.llm_client import LLMError, LLMResponse
 from content_engine.stages import classify as classify_module
-from content_engine.stages.classify import _classify_llm, classify_one
+from content_engine.stages.classify import _classify_llm, _kw_hit, classify_one
 
 
 # ---- 规则函数本身（不依赖 LLM）-------------------------------------------------
@@ -31,6 +31,43 @@ def test_classify_one_fallback_when_zero_score():
     module, conf = classify_one("一段无关键词的纯文本", "完全空白的内容", Module.macro)
     assert module == Module.macro
     assert conf == 0.5
+
+
+# ---- 英文缩写词边界匹配（修复 "AI" 子串误命中 "AirPods"）------------------------
+def test_kw_hit_ascii_word_boundary():
+    text = "the airpods pro 3 are $179 at walmart"
+    # "AI" 不应命中 "airpods" 内部的 "ai"
+    assert _kw_hit("AI", text) is False
+    # 独立英文缩写词应命中
+    assert _kw_hit("AI", "what is ai today") is True
+
+
+def test_kw_hit_ascii_adjacent_chinese():
+    # 英文缩写紧贴中文（中文非 ASCII 边界），应命中
+    assert _kw_hit("AI", "ai产品冷启动从0到1000") is True
+    assert _kw_hit("GDP", "gdp增长5%") is True
+    assert _kw_hit("IPO", "公司ipo上市") is True
+
+
+def test_kw_hit_ascii_hyphen_boundary():
+    # 连字符 / 数字也是边界
+    assert _kw_hit("GPT", "openai gpt-5 发布") is True
+
+
+def test_kw_hit_chinese_substring():
+    # 中文关键词仍走子串匹配
+    assert _kw_hit("大模型", "国产大模型再上新") is True
+    assert _kw_hit("智能体", "推出面向个人的专属智能体") is True
+
+
+def test_classify_airpods_not_misclassified_as_ai():
+    """回归：AirPods 降价不应被规则判成 ai（曾 conf=1.0 硬错）。"""
+    module, conf = classify_one(
+        "The AirPods Pro 3 are $179 at Walmart, their best price",
+        "苹果耳机降价促销",
+        Module.tech,
+    )
+    assert module != Module.ai or conf < 1.0
 
 
 # ---- LLM 兜底分支 -------------------------------------------------------------

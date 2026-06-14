@@ -19,6 +19,7 @@ LLM 协议（OpenAI 兼容 ``POST /v1/chat/completions``）：
 from __future__ import annotations
 
 import json
+import re
 
 from sqlalchemy import select
 
@@ -35,13 +36,36 @@ _logger = get_logger(__name__)
 _LLM_INPUT_MAX_CHARS = 800
 _VALID_MODULES = {m.value for m in Module}
 
+# 关键词命中匹配：纯 ASCII 字母/数字的关键词（如 AI/GPT/LLM/IPO/CPI/GDP）必须按
+# 词边界匹配，否则 "AI" 会子串命中 "AirPods" 里的 "ai"、"股"无此问题（中文）。
+# 含中文（或非 ASCII）的关键词仍走子串匹配（中文无空格分词，词边界不适用）。
+_ASCII_KW = re.compile(r"^[A-Za-z0-9]+$")
+
+
+def _kw_hit(keyword: str, text: str) -> bool:
+    """关键词是否命中文本。
+
+    - 纯英文/数字缩写：按词边界匹配（``\bkw\b``，大小写不敏感），避免命中单词内部；
+    - 含中文等非 ASCII：沿用子串匹配（中文不分词）。
+    text 已是小写；keyword 原样传入由本函数处理大小写。
+    """
+    kw = keyword.strip()
+    if not kw:
+        return False
+    if _ASCII_KW.match(kw):
+        # 边界用「前后非 ASCII 字母数字」而非 \b：既挡住 "AI" 命中 "airpods" 内部，
+        # 又允许英文缩写紧贴中文（如 "GDP增长"），因中文是 unicode \w 会让 \b 失效。
+        kw_low = kw.lower()
+        return re.search(rf"(?<![a-z0-9]){re.escape(kw_low)}(?![a-z0-9])", text) is not None
+    return kw.lower() in text
+
 
 def classify_one(title: str, content: str, fallback: Module) -> tuple[Module, float]:
     """关键词打分，返回 (模块, 置信度 0-1)。"""
     text = f"{title} {content}".lower()
     scores: dict[Module, int] = {}
     for module, kws in CLASSIFY_RULES.items():
-        scores[module] = sum(1 for kw in kws if kw.lower() in text)
+        scores[module] = sum(1 for kw in kws if _kw_hit(kw, text))
     best = max(scores, key=scores.get)
     if scores[best] == 0:
         return fallback, 0.5
