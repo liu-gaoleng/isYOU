@@ -57,6 +57,23 @@ def test_score_classify_empty(tmp_path):
     assert r["accuracy"] is None
 
 
+def test_score_classify_blank_correct_mode(tmp_path):
+    # 只标错误口径：空白=预测正确，仅误分类行填正确模块
+    p = tmp_path / "s.csv"
+    _write_csv(p, [
+        {"article_id": 1, "predicted_module": "tech", "true_module": ""},      # 正确
+        {"article_id": 2, "predicted_module": "ai", "true_module": ""},         # 正确
+        {"article_id": 3, "predicted_module": "tech", "true_module": "ai"},     # 错
+        {"article_id": 4, "predicted_module": "finance", "true_module": ""},    # 正确
+    ])
+    r = score_classify(str(p), blank_correct=True)
+    assert r["labeled"] == 4
+    assert r["correct"] == 3
+    assert r["accuracy"] == 0.75
+    # 混淆矩阵：真值 ai 行 = {ai:1（row2 正确）, tech:1（row3 被误判成 tech）}
+    assert r["confusion"]["ai"] == {"ai": 1, "tech": 1}
+
+
 def test_score_classify_per_module_precision_recall(tmp_path):
     p = tmp_path / "s.csv"
     # tech: 2 真值，1 命中 1 漏判成 ai => recall 0.5；预测 tech 1 次全对 => precision 1.0

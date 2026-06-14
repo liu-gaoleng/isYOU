@@ -102,16 +102,27 @@ def sample_classify(per_module: int, out_path: str, seed: int = 42) -> dict:
 # ---------------------------------------------------------------------------
 # 分类：读回人工标注算准确率
 # ---------------------------------------------------------------------------
-def score_classify(in_path: str) -> dict:
-    """读回已标注 CSV，算总体准确率 + 逐模块 precision/recall + 混淆矩阵。"""
+def score_classify(in_path: str, blank_correct: bool = False) -> dict:
+    """读回已标注 CSV，算总体准确率 + 逐模块 precision/recall + 混淆矩阵。
+
+    两种标注口径：
+    - 默认（全量标注）：仅统计 ``true_module`` 已填且合法的行，空白=跳过；
+    - ``blank_correct=True``（只标错误）：``true_module`` 空白视为「预测正确」，
+      即 true=predicted；只在误分类行填写正确模块。此时分母为全部有合法预测的行。
+    """
     valid = {m.value for m in Module}
     labeled: list[tuple[str, str]] = []  # (predicted, true)
     with open(in_path, encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
             true = (row.get("true_module") or "").strip().lower()
             pred = (row.get("predicted_module") or "").strip().lower()
-            if true in valid and pred in valid:
+            if pred not in valid:
+                continue
+            if true in valid:
                 labeled.append((pred, true))
+            elif blank_correct and not true:
+                # 只标错误口径：空白 = 预测正确
+                labeled.append((pred, pred))
 
     n = len(labeled)
     if n == 0:
@@ -269,6 +280,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     s2 = sub.add_parser("score-classify", help="读回已标注 CSV 算准确率")
     s2.add_argument("--in", dest="in_path", required=True)
+    s2.add_argument(
+        "--blank-correct",
+        action="store_true",
+        help="只标错误口径：true_module 空白视为预测正确（只在误分类行填正确模块）",
+    )
 
     sub.add_parser("cluster", help="自动评测误并 + 漏并率")
     sub.add_parser("gate", help="串卡自动指标汇总（分类需先人工标注）")
@@ -282,7 +298,13 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "score-classify":
         import json
 
-        print(json.dumps(score_classify(args.in_path), ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                score_classify(args.in_path, blank_correct=args.blank_correct),
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
     elif args.cmd in ("cluster", "gate"):
         import json
 
