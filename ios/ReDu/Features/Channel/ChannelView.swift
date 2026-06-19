@@ -24,6 +24,8 @@ struct ChannelView: View {
                 switch route {
                 case let .eventDetail(id, title):
                     EventDetailView(eventID: id, fallbackTitle: title)
+                default:
+                    EmptyView()
                 }
             }
             .task { if vm.state == .idle { await vm.load() } }

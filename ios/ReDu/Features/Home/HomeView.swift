@@ -29,6 +29,8 @@ struct HomeView: View {
                 switch route {
                 case let .eventDetail(id, title):
                     EventDetailView(eventID: id, fallbackTitle: title)
+                default:
+                    EmptyView()
                 }
             }
             .task { await vm.load() }

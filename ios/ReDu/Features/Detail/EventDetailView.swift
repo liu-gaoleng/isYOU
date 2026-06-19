@@ -1,7 +1,7 @@
 //
 //  EventDetailView.swift
-//  事件详情页（首期基础版）：标题 + 标签 + 详情摘要 + 多源标注 + 原文链接 + 免责声明。
-//  付费墙/会员态待后端账号 API 就绪后接入（清单 2.4 后续）。
+//  事件详情页（清单 2.4/2.7）：标题 + 标签 + 详情摘要 + 付费深度解读（会员态截断）+
+//  多源标注 + 原文链接 + 免责声明；工具栏含收藏与分享。
 //
 
 import SwiftUI
@@ -10,8 +10,10 @@ struct EventDetailView: View {
     let eventID: Int
     let fallbackTitle: String?
 
+    @EnvironmentObject private var auth: AuthStore
     @StateObject private var vm = EventDetailViewModel()
     @Environment(\.openURL) private var openURL
+    @State private var showLogin = false
 
     var body: some View {
         ZStack {
@@ -19,7 +21,56 @@ struct EventDetailView: View {
             content
         }
         .navigationBarTitleDisplayMode(.inline)
-        .task { await vm.load(id: eventID) }
+        .toolbar { toolbarContent }
+        .sheet(isPresented: $showLogin) {
+            LoginView().environmentObject(auth)
+        }
+        .task { await vm.load(id: eventID, isAuthenticated: auth.isAuthenticated) }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItemGroup(placement: .navigationBarTrailing) {
+            if vm.detail != nil {
+                favoriteButton
+                shareButton
+            }
+        }
+    }
+
+    private var favoriteButton: some View {
+        Button {
+            if auth.isAuthenticated {
+                Task { await vm.toggleFavorite(id: eventID) }
+            } else {
+                showLogin = true
+            }
+        } label: {
+            Image(systemName: vm.isFavorited ? "bookmark.fill" : "bookmark")
+                .foregroundStyle(vm.isFavorited ? DSColor.accent : DSColor.ink2)
+        }
+        .disabled(vm.favoriteToggling)
+    }
+
+    @ViewBuilder
+    private var shareButton: some View {
+        if let detail = vm.detail {
+            ShareLink(item: shareText(detail)) {
+                Image(systemName: "square.and.arrow.up")
+                    .foregroundStyle(DSColor.ink2)
+            }
+        }
+    }
+
+    /// 分享文案：标题 + 卡片摘要 + 品牌署名。
+    private func shareText(_ detail: EventDetail) -> String {
+        var parts: [String] = []
+        parts.append(detail.title ?? fallbackTitle ?? "热读要闻")
+        if let summary = detail.cardSummary, !summary.isEmpty {
+            parts.append(summary)
+        }
+        parts.append("—— 来自「热读」")
+        return parts.joined(separator: "\n\n")
     }
 
     @ViewBuilder
@@ -28,7 +79,7 @@ struct EventDetailView: View {
         case .idle, .loading:
             LoadingView()
         case .failed(let msg):
-            ErrorStateView(message: msg) { Task { await vm.load(id: eventID) } }
+            ErrorStateView(message: msg) { Task { await vm.load(id: eventID, isAuthenticated: auth.isAuthenticated) } }
         case .empty:
             EmptyStateView(message: "内容不存在")
         case .loaded:
@@ -83,6 +134,10 @@ struct EventDetailView: View {
                         .lineSpacing(6)
                 }
 
+                if let deep = detail.deepContent {
+                    deepContentSection(deep)
+                }
+
                 if !detail.tags.isEmpty {
                     HStack(spacing: 8) {
                         ForEach(detail.tags, id: \.self) { tag in
@@ -100,6 +155,88 @@ struct EventDetailView: View {
                 }
             }
             .padding(20)
+        }
+    }
+
+    // MARK: - 付费深度解读（会员态截断 / 付费墙）
+
+    @ViewBuilder
+    private func deepContentSection(_ deep: DeepContent) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 13))
+                    .foregroundStyle(DSColor.accent)
+                Text("深度解读")
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundStyle(DSColor.accent)
+            }
+
+            if deep.isLocked {
+                lockedContent(deep)
+            } else if let content = deep.content, !content.isEmpty {
+                Text(content)
+                    .font(.system(size: 15))
+                    .foregroundStyle(DSColor.ink)
+                    .lineSpacing(6)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DSColor.card2)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(DSColor.accentSoft, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private func lockedContent(_ deep: DeepContent) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if let preview = deep.preview, !preview.isEmpty {
+                Text(preview)
+                    .font(.system(size: 15))
+                    .foregroundStyle(DSColor.ink2)
+                    .lineSpacing(6)
+                    .overlay(alignment: .bottom) {
+                        // 底部渐隐，暗示内容被截断。
+                        LinearGradient(
+                            colors: [DSColor.card2.opacity(0), DSColor.card2],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                        .frame(height: 36)
+                    }
+            }
+
+            VStack(spacing: 8) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(DSColor.accent)
+                Text(deep.paywall?.cta ?? "开通会员，解锁完整深度解读")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(DSColor.ink2)
+                    .multilineTextAlignment(.center)
+                Button {
+                    paywallAction()
+                } label: {
+                    Text(auth.isAuthenticated ? "开通会员" : "登录后开通")
+                        .font(.system(size: 14, weight: .bold))
+                        .padding(.horizontal, 28)
+                        .padding(.vertical, 10)
+                        .background(DSColor.accent)
+                        .foregroundStyle(DSColor.bg)
+                        .clipShape(Capsule())
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 4)
+        }
+    }
+
+    private func paywallAction() {
+        if auth.isAuthenticated {
+            // M3 接入 StoreKit 2 内购；当前阶段先占位提示。
+            // TODO(M3): 拉起 IAP 购买流程
+        } else {
+            showLogin = true
         }
     }
 

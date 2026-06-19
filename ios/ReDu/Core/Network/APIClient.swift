@@ -7,8 +7,9 @@
 import Foundation
 
 /// 网络错误类型。
-enum APIError: LocalizedError {
+enum APIError: LocalizedError, Equatable {
     case invalidResponse
+    case unauthorized
     case http(status: Int)
     case decoding(Error)
     case transport(Error)
@@ -16,9 +17,24 @@ enum APIError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidResponse: return "无效的服务响应"
+        case .unauthorized: return "登录已过期，请重新登录"
         case .http(let status): return "服务异常（\(status)）"
         case .decoding: return "数据解析失败"
         case .transport: return "网络连接失败"
+        }
+    }
+
+    static func == (lhs: APIError, rhs: APIError) -> Bool {
+        switch (lhs, rhs) {
+        case (.invalidResponse, .invalidResponse),
+             (.unauthorized, .unauthorized):
+            return true
+        case let (.http(a), .http(b)):
+            return a == b
+        case (.decoding, .decoding), (.transport, .transport):
+            return true
+        default:
+            return false
         }
     }
 }
@@ -26,6 +42,8 @@ enum APIError: LocalizedError {
 /// API 客户端协议，便于测试时注入 mock。
 protocol APIClientProtocol {
     func send<T: Decodable>(_ endpoint: Endpoint, as type: T.Type) async throws -> T
+    /// 无响应体（204）或仅关心成功与否的端点。
+    func send(_ endpoint: Endpoint) async throws
 }
 
 /// 默认实现：进程内单例。
@@ -34,9 +52,11 @@ final class APIClient: APIClientProtocol {
 
     private let session: URLSession
     private let decoder: JSONDecoder
+    private let tokenStore: TokenStoring
 
-    init(session: URLSession = .shared) {
+    init(session: URLSession = .shared, tokenStore: TokenStoring = TokenStore.shared) {
         self.session = session
+        self.tokenStore = tokenStore
         let decoder = JSONDecoder()
         // 后端时间可能带微秒，标准 .iso8601 解析会失败，这里用自定义格式器兜底。
         decoder.dateDecodingStrategy = .custom { d in
@@ -52,8 +72,13 @@ final class APIClient: APIClientProtocol {
         self.decoder = decoder
     }
 
-    func send<T: Decodable>(_ endpoint: Endpoint, as type: T.Type) async throws -> T {
-        let request = endpoint.makeRequest()
+    /// 执行请求并校验状态码，返回响应体数据。
+    private func perform(_ endpoint: Endpoint) async throws -> Data {
+        var request = endpoint.makeRequest()
+        // 需鉴权端点统一注入 Bearer token。
+        if endpoint.requiresAuth, let token = tokenStore.token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
         let data: Data
         let response: URLResponse
         do {
@@ -64,14 +89,26 @@ final class APIClient: APIClientProtocol {
         guard let http = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
+        if http.statusCode == 401 {
+            throw APIError.unauthorized
+        }
         guard (200..<300).contains(http.statusCode) else {
             throw APIError.http(status: http.statusCode)
         }
+        return data
+    }
+
+    func send<T: Decodable>(_ endpoint: Endpoint, as type: T.Type) async throws -> T {
+        let data = try await perform(endpoint)
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
             throw APIError.decoding(error)
         }
+    }
+
+    func send(_ endpoint: Endpoint) async throws {
+        _ = try await perform(endpoint)
     }
 }
 

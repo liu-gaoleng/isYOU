@@ -9,10 +9,14 @@ import SwiftUI
 
 @main
 struct ReDuApp: App {
+    @StateObject private var auth = AuthStore()
+
     var body: some Scene {
         WindowGroup {
             RootTabView()
+                .environmentObject(auth)
                 .preferredColorScheme(.dark) // 对齐原型：深石墨底
+                .task { await auth.restore() }
         }
     }
 }
