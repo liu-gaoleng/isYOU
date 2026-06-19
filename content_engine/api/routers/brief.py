@@ -180,6 +180,64 @@ def feed(
         return FeedPage(items=items, next_cursor=next_cursor)
 
 
+@router.get("/search", response_model=FeedPage)
+def search(
+    q: str = Query(..., min_length=1, max_length=64, description="关键词"),
+    cursor: Optional[str] = Query(default=None, description="上一页返回的 next_cursor"),
+    limit: int = Query(default=20, ge=1, le=50),
+    module: Optional[str] = Query(default=None, description="可选按模块过滤"),
+) -> FeedPage:
+    """关键词搜索：匹配事件 card_summary / detail_summary 或最新内容标题。
+
+    - 子串匹配（ILIKE，大小写不敏感），对齐原型 /v1/search 语义；
+    - 可选模块过滤；按 (importance, id) 倒序 + 复合 cursor 分页。
+    """
+    keyword = q.strip()
+    if not keyword:
+        return FeedPage(items=[], next_cursor=None)
+    like = f"%{keyword}%"
+
+    # 标题在 event_contents，用 EXISTS 子查询命中；正文摘要在 events 本表。
+    title_match = (
+        select(EventContent.id)
+        .where(EventContent.event_id == Event.id)
+        .where(EventContent.title.ilike(like))
+        .exists()
+    )
+    stmt = (
+        select(Event)
+        .where(Event.status.in_(_VISIBLE_STATUSES))
+        .where(
+            Event.card_summary.ilike(like)
+            | Event.detail_summary.ilike(like)
+            | title_match
+        )
+        .order_by(desc(Event.importance), desc(Event.id))
+        .limit(limit + 1)
+    )
+    if module:
+        stmt = stmt.where(Event.module == _parse_module(module))
+
+    if cursor:
+        last_importance, last_id = _decode_score_cursor(cursor)
+        stmt = stmt.where(
+            (Event.importance < last_importance)
+            | ((Event.importance == last_importance) & (Event.id < last_id))
+        )
+
+    with get_session() as s:
+        rows = s.execute(stmt).scalars().all()
+        has_more = len(rows) > limit
+        page = rows[:limit]
+        items = [_to_card(ev) for ev in page]
+        next_cursor = (
+            _encode_score_cursor(page[-1].importance, page[-1].id)
+            if (has_more and page)
+            else None
+        )
+        return FeedPage(items=items, next_cursor=next_cursor)
+
+
 @router.get("/ranking", response_model=list[EventCard])
 def ranking_top(
     module: Optional[str] = Query(default=None, description="可选按模块过滤"),
@@ -239,5 +297,19 @@ def _decode_cursor(cursor: str) -> tuple[datetime, int]:
         raw = base64.urlsafe_b64decode(cursor.encode("ascii")).decode("utf-8")
         data = json.loads(raw)
         return datetime.fromisoformat(data["t"]), int(data["id"])
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="invalid cursor") from exc
+
+
+def _encode_score_cursor(importance: float, last_id: int) -> str:
+    payload = json.dumps({"s": importance, "id": last_id}).encode("utf-8")
+    return base64.urlsafe_b64encode(payload).decode("ascii")
+
+
+def _decode_score_cursor(cursor: str) -> tuple[float, int]:
+    try:
+        raw = base64.urlsafe_b64decode(cursor.encode("ascii")).decode("utf-8")
+        data = json.loads(raw)
+        return float(data["s"]), int(data["id"])
     except Exception as exc:
         raise HTTPException(status_code=400, detail="invalid cursor") from exc
