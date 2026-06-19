@@ -190,32 +190,58 @@ class AdminMember(IdMixin, TimestampMixin, Base):
 
 
 # ----------------------------------------------------------------------------
-# C 端收藏 / 阅读历史（按 token 区分）
+# C 端收藏 / 阅读历史
+# 两套主体并存：
+# - token：mock_server 联调态（CMS/原型页用 Bearer token 模拟用户）；
+# - user_id：生产 C 端 API（阶段 3.4），由 JWT 解出的真实登录用户 id。
+# 两列均可空，按写入方填其一；用户维度各自唯一约束/索引，互不干扰。
 # ----------------------------------------------------------------------------
 class Favorite(IdMixin, TimestampMixin, Base):
-    """C 端收藏（token ↔ 事件）。"""
+    """C 端收藏（token 或 user_id ↔ 事件）。"""
 
     __tablename__ = "favorites"
     __table_args__ = (
         UniqueConstraint("token", "event_id", name="uq_favorites_token_event"),
+        UniqueConstraint("user_id", "event_id", name="uq_favorites_user_event"),
         Index("ix_favorites_token", "token"),
+        Index("ix_favorites_user_id", "user_id"),
     )
 
-    token: Mapped[str] = mapped_column(String(64), nullable=False)
+    token: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     event_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
 
 class ReadingHistory(IdMixin, TimestampMixin, Base):
-    """C 端阅读历史（token ↔ 事件，最近在前）。"""
+    """C 端阅读历史（token 或 user_id ↔ 事件，最近在前）。"""
 
     __tablename__ = "reading_history"
     __table_args__ = (
         Index("ix_reading_history_token_viewed", "token", "viewed_at"),
+        Index("ix_reading_history_user_viewed", "user_id", "viewed_at"),
     )
 
-    token: Mapped[str] = mapped_column(String(64), nullable=False)
+    token: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     event_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     viewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class PushSetting(IdMixin, TimestampMixin, Base):
+    """C 端推送设置（每个登录用户一行，阶段 3.4）。"""
+
+    __tablename__ = "push_settings"
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_push_settings_user_id"),
+    )
+
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # 每日早报推送
+    daily_push: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # 推送时间（HH:MM）
+    push_time: Mapped[str] = mapped_column(String(8), nullable=False, default="08:00")
+    # 突发要闻推送
+    breaking_push: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 __all__ = [
@@ -228,4 +254,5 @@ __all__ = [
     "AdminMember",
     "Favorite",
     "ReadingHistory",
+    "PushSetting",
 ]

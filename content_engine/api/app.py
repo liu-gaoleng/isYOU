@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from ..logging_config import configure_logging
-from .routers import auth, brief, metrics, review
+from .routers import auth, brief, me, metrics, review
 
 configure_logging()
 
@@ -42,5 +42,6 @@ def healthz() -> dict:
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(brief.router, prefix="/api/v1")
+app.include_router(me.router, prefix="/api/v1")
 app.include_router(review.router, prefix="/api/v1")
 app.include_router(metrics.router, prefix="/api/v1")

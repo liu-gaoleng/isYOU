@@ -109,6 +109,48 @@ class LoginResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# 阶段 3.4：收藏 / 阅读历史 / 推送设置（按登录用户 user_id）
+# ---------------------------------------------------------------------------
+class FavoriteState(BaseModel):
+    """收藏状态切换结果。"""
+
+    event_id: int
+    is_favorited: bool
+
+
+class FavoriteCard(EventCard):
+    """收藏列表项：事件卡片 + 收藏时间。"""
+
+    favorited_at: datetime
+
+
+class HistoryCard(EventCard):
+    """阅读历史项：事件卡片 + 浏览时间。"""
+
+    viewed_at: datetime
+
+
+class HistoryClearResult(BaseModel):
+    cleared: bool
+
+
+class PushSettings(BaseModel):
+    """推送设置（读 / 写共用）。"""
+
+    daily_push: bool = True
+    push_time: str = "08:00"
+    breaking_push: bool = False
+
+
+class PushSettingsUpdate(BaseModel):
+    """推送设置更新（全部可选，仅更新传入字段）。"""
+
+    daily_push: bool | None = None
+    push_time: str | None = None
+    breaking_push: bool | None = None
+
+
+# ---------------------------------------------------------------------------
 # 阶段 4.2：CMS 质检后台 schema
 # ---------------------------------------------------------------------------
 class ReviewItem(BaseModel):
