@@ -60,3 +60,28 @@ class Module(str, enum.Enum):
     finance = "finance"
     ai = "ai"
     macro = "macro"
+
+
+class SubscriptionPlan(str, enum.Enum):
+    """会员订阅档位（阶段 3.2）。
+
+    与 App Store Connect 配置的自动续订订阅一一对应，由 product_id 映射到此枚举；
+    每档对应一个续期周期（天），核销时据此推算 member_expire_at。
+    """
+
+    monthly = "monthly"
+    quarterly = "quarterly"
+    yearly = "yearly"
+
+
+class SubscriptionStatus(str, enum.Enum):
+    """订阅记录状态（阶段 3.2）。
+
+    active   : 当前有效（未到期）
+    expired  : 已到期（懒降级/定时巡检置位，会员权益失效）
+    refunded : 已退款（Apple 退款通知或 Server API 查得 revocation，立即失效）
+    """
+
+    active = "active"
+    expired = "expired"
+    refunded = "refunded"

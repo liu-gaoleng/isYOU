@@ -151,6 +151,34 @@ class PushSettingsUpdate(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# 阶段 3.2：会员订阅 / Apple IAP 收据校验 schema
+# ---------------------------------------------------------------------------
+class PlanItem(BaseModel):
+    """订阅档位（供客户端展示与 StoreKit 商品匹配）。"""
+
+    plan: str  # monthly / quarterly / yearly
+    product_id: str
+    period_days: int
+
+
+class MembershipStatus(BaseModel):
+    """当前会员态（付费墙判定的对外视图）。"""
+
+    is_member: bool
+    member_tier: str = "free"
+    member_expire_at: datetime | None = None
+    plan: str | None = None
+    auto_renew: bool = False
+    subscription_status: str | None = None  # active / expired / refunded
+
+
+class VerifyReceiptRequest(BaseModel):
+    """客户端上送 StoreKit 2 已签名交易（JWSTransaction）。"""
+
+    signed_transaction: str = Field(min_length=1, description="StoreKit2 JWSTransaction")
+
+
+# ---------------------------------------------------------------------------
 # 阶段 4.2：CMS 质检后台 schema
 # ---------------------------------------------------------------------------
 class ReviewItem(BaseModel):

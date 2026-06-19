@@ -5,8 +5,16 @@
 """
 
 from .base import Base, IdMixin, TimestampMixin
+from .billing import IapTransaction, Subscription
 from .db import get_engine, get_session
-from .enums import ArticleStatus, EventStatus, Module, SourceLevel
+from .enums import (
+    ArticleStatus,
+    EventStatus,
+    Module,
+    SourceLevel,
+    SubscriptionPlan,
+    SubscriptionStatus,
+)
 from .observability import PipelineRun
 from .ops import (
     AdminMember,
@@ -40,6 +48,8 @@ __all__ = [
     "EventStatus",
     "Module",
     "SourceLevel",
+    "SubscriptionPlan",
+    "SubscriptionStatus",
     "Source",
     "RawArticle",
     "Event",
@@ -58,6 +68,8 @@ __all__ = [
     "Favorite",
     "ReadingHistory",
     "PushSetting",
+    "IapTransaction",
+    "Subscription",
     "PipelineRun",
     "EMBEDDING_DIM",
     "get_engine",

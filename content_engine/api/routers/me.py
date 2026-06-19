@@ -26,16 +26,18 @@ from content_engine.models import (
     Favorite,
     PushSetting,
     ReadingHistory,
+    Subscription,
     User,
     get_session,
 )
 
-from ..deps import get_current_user
+from ..deps import get_current_user, is_member
 from ..schemas import (
     FavoriteCard,
     FavoriteState,
     HistoryCard,
     HistoryClearResult,
+    MembershipStatus,
     PushSettings,
     PushSettingsUpdate,
 )
@@ -243,4 +245,24 @@ def update_settings(
             daily_push=row.daily_push,
             push_time=row.push_time,
             breaking_push=row.breaking_push,
+        )
+
+
+# ---------------------------------------------------------------------------
+# 会员态（阶段 3.2）
+# ---------------------------------------------------------------------------
+@router.get("/membership", response_model=MembershipStatus)
+def get_membership(user: User = Depends(get_current_user)) -> MembershipStatus:
+    """读当前会员态：is_member 实时按 member_expire_at 判定（懒降级）。"""
+    with get_session() as s:
+        sub = s.execute(
+            select(Subscription).where(Subscription.user_id == user.id)
+        ).scalar_one_or_none()
+        return MembershipStatus(
+            is_member=is_member(user),
+            member_tier=user.member_tier,
+            member_expire_at=user.member_expire_at,
+            plan=sub.plan if sub else None,
+            auto_renew=sub.auto_renew if sub else False,
+            subscription_status=sub.status if sub else None,
         )

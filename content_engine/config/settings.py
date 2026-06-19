@@ -238,6 +238,64 @@ class AuthSettings(BaseSettings):
     )
 
 
+class BillingSettings(BaseSettings):
+    """阶段 3.2：会员订阅 / Apple IAP（StoreKit 2）收据校验配置。
+
+    校验链路：客户端上送 StoreKit 2 的 JWS 交易（Apple 用其私钥 ES256 签名，
+    头部 x5c 携带证书链）；服务端用内置 Apple Root CA 校验证书链，再用叶子证书
+    公钥验签 JWS，取 payload 的 transaction/expires/product 等字段。
+
+    可选：App Store Server API（查询订阅状态 / 退款）需要 issuer_id + key_id + 私钥(.p8)，
+    用于服务端主动查权威订阅态、对账退款；本阶段以 JWS 离线验签为主，Server API 为增强项。
+
+    铁律：商品 id 必须与 App Store Connect 一致；Apple Root CA 证书路径来自配置，
+    缺失时收据校验直接拒绝（不裸放行），避免伪造交易绕过付费墙。
+    """
+
+    # 自动续订订阅的 App Store Connect product_id（与 SubscriptionPlan 一一对应）
+    product_monthly: str = Field(
+        default="com.redu.app.member.monthly",
+        validation_alias="RD_BILLING_PRODUCT_MONTHLY",
+    )
+    product_quarterly: str = Field(
+        default="com.redu.app.member.quarterly",
+        validation_alias="RD_BILLING_PRODUCT_QUARTERLY",
+    )
+    product_yearly: str = Field(
+        default="com.redu.app.member.yearly",
+        validation_alias="RD_BILLING_PRODUCT_YEARLY",
+    )
+
+    # Apple Root CA (G3) PEM 文件路径，用于校验 JWS x5c 证书链；为空则拒绝校验
+    apple_root_ca_path: str = Field(
+        default="", validation_alias="RD_BILLING_APPLE_ROOT_CA_PATH"
+    )
+    # App 的 bundle id（校验 JWS payload 的 bundleId 一致）；为空则不强校验
+    bundle_id: str = Field(default="", validation_alias="RD_BILLING_BUNDLE_ID")
+    # 接受的环境（Production / Sandbox），逗号分隔；联调期含 Sandbox
+    accepted_environments: str = Field(
+        default="Production,Sandbox", validation_alias="RD_BILLING_ACCEPTED_ENVIRONMENTS"
+    )
+
+    # ---- App Store Server API 凭据（可选增强：服务端主动查订阅/退款）----
+    server_api_issuer_id: str = Field(
+        default="", validation_alias="RD_BILLING_SERVER_API_ISSUER_ID"
+    )
+    server_api_key_id: str = Field(
+        default="", validation_alias="RD_BILLING_SERVER_API_KEY_ID"
+    )
+    # App Store Connect 下载的 .p8 私钥文件路径（EC P-256）
+    server_api_private_key_path: str = Field(
+        default="", validation_alias="RD_BILLING_SERVER_API_PRIVATE_KEY_PATH"
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=_ENV_FILE,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
 class CelerySettings(BaseSettings):
     """阶段 4.3：Celery 调度配置（broker / backend 默认复用 Redis 不同 db）。"""
 
@@ -277,6 +335,7 @@ class Settings(BaseSettings):
     guard: GuardSettings = Field(default_factory=GuardSettings)
     admin: AdminSettings = Field(default_factory=AdminSettings)
     auth: AuthSettings = Field(default_factory=AuthSettings)
+    billing: BillingSettings = Field(default_factory=BillingSettings)
     celery: CelerySettings = Field(default_factory=CelerySettings)
 
     model_config = SettingsConfigDict(
@@ -297,4 +356,4 @@ def get_settings() -> Settings:
 settings = get_settings()
 
 
-__all__ = ["Settings", "LLMSettings", "ThresholdSettings", "EmbeddingSettings", "RankingSettings", "GuardSettings", "AdminSettings", "AuthSettings", "CelerySettings", "settings", "get_settings"]
+__all__ = ["Settings", "LLMSettings", "ThresholdSettings", "EmbeddingSettings", "RankingSettings", "GuardSettings", "AdminSettings", "AuthSettings", "BillingSettings", "CelerySettings", "settings", "get_settings"]

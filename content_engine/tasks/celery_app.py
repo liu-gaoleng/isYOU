@@ -22,7 +22,10 @@ celery_app = Celery(
     "content_engine",
     broker=settings.celery.broker_url,
     backend=settings.celery.result_backend,
-    include=["content_engine.tasks.pipeline_tasks"],
+    include=[
+        "content_engine.tasks.pipeline_tasks",
+        "content_engine.tasks.billing_tasks",
+    ],
 )
 
 celery_app.conf.update(
@@ -49,6 +52,11 @@ celery_app.conf.beat_schedule = {
     "daily-recluster": {
         "task": "content_engine.tasks.pipeline_tasks.daily_recluster",
         "schedule": crontab(hour=19, minute=0),
+    },
+    # 每小时会员到期巡检（懒降级的定时兜底）
+    "downgrade-expired-members-hourly": {
+        "task": "content_engine.tasks.billing_tasks.downgrade_expired_members",
+        "schedule": crontab(minute=0),
     },
 }
 
