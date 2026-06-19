@@ -44,6 +44,12 @@ class LLMSettings(BaseSettings):
     backoff_base: float = Field(default=1.0, validation_alias="RD_LLM_BACKOFF_BASE")
     timeout: int = Field(default=60, validation_alias="RD_LLM_TIMEOUT")
 
+    # 并发化：summarize 阶段线程池并发度。推理模型单次 ~30s，串行 167 条 ≈ 80 分钟；
+    # 并发后整体提速 ≈ 该倍数。令牌桶 rate_per_sec 仍是全局限流护栏（高并发不会超 QPS）。
+    summarize_concurrency: int = Field(
+        default=8, validation_alias="RD_LLM_SUMMARIZE_CONCURRENCY"
+    )
+
     # 阶段 D：成本核算单价（美元/千 token）。默认 0 表示不计费（仅累计 token）；
     # 配置后由 llm_client 按 usage 自动换算 cost，写入 llm_meta 供成本看板聚合。
     cost_per_1k_prompt: float = Field(
