@@ -24,7 +24,7 @@ import argparse
 import csv
 import random
 from collections import defaultdict
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 
@@ -33,6 +33,7 @@ from content_engine.logging_config import get_logger
 from content_engine.models import (
     Event,
     EventArticle,
+    EventStatus,
     Module,
     RawArticle,
     get_session,
@@ -52,6 +53,34 @@ _CSV_FIELDS = [
     "excerpt",
 ]
 _EXCERPT_CHARS = 200
+
+# 已发布产物抽检（§1.1 连续 3 天日更）：抽样单位是已发布事件，
+# 人工对照 card/detail 摘要判断模块归类是否正确（true_module 留空=正确，仅误判行填正确模块），
+# 复用 score-classify 的「只标错误」口径打合格率。
+_PUB_CSV_FIELDS = [
+    "event_id",
+    "published_date",
+    "predicted_module",
+    "importance",
+    "source_count",
+    "true_module",  # 人工填：tech/finance/ai/macro，留空=预测正确（blank-correct 口径）
+    "card_summary",
+    "detail_excerpt",
+]
+
+
+def _stratified_pick(
+    by_module: dict[str, list],
+    per_module: int,
+    rng: random.Random,
+) -> list:
+    """按四模块分层、每模块随机抽 ``per_module`` 条（不足则全取）。纯函数，便于单测。"""
+    picked: list = []
+    for module in (m.value for m in Module):
+        pool = list(by_module.get(module, []))
+        rng.shuffle(pool)
+        picked.extend(pool[:per_module])
+    return picked
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +188,90 @@ def score_classify(in_path: str, blank_correct: bool = False) -> dict:
     }
     _logger.info("[eval.score] n=%d  准确率=%.2f%%", n, accuracy * 100)
     return result
+
+
+# ---------------------------------------------------------------------------
+# 已发布产物抽检（§1.1 连续 3 天日更 → 抽检 ≥90%）
+# ---------------------------------------------------------------------------
+def sample_published(
+    per_module: int,
+    out_path: str,
+    days: int = 3,
+    seed: int = 42,
+    now: datetime | None = None,
+) -> dict:
+    """按「最近 ``days`` 天发布窗口 + status=published + 四模块分层」抽样已发布事件导出 CSV。
+
+    与 ``sample_classify`` 的区别：抽样单位是**已发布事件**而非全量已分类文章，且限定
+    在灰度日更窗口内（按 ``Event.last_update`` 作发布日口径），精确对齐 §1.1
+    「连续 3 天日更产出抽检」。导出后人工对照 card/detail 摘要判断模块是否归类正确，
+    用 ``score-classify --blank-correct``（只标错误口径）算合格率。
+    """
+    rng = random.Random(seed)
+    ref = now or datetime.now(timezone.utc)
+    since = ref - timedelta(days=days)
+
+    by_module: dict[str, list[Event]] = defaultdict(list)
+    with get_session() as s:
+        rows = (
+            s.execute(
+                select(Event).where(
+                    Event.status == EventStatus.published,
+                    Event.last_update >= since,
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for ev in rows:
+            by_module[ev.module.value].append(ev)
+
+        picked = _stratified_pick(by_module, per_module, rng)
+
+        with open(out_path, "w", newline="", encoding="utf-8-sig") as f:
+            writer = csv.DictWriter(f, fieldnames=_PUB_CSV_FIELDS)
+            writer.writeheader()
+            for ev in picked:
+                writer.writerow(
+                    {
+                        "event_id": ev.id,
+                        "published_date": ev.last_update.date().isoformat()
+                        if ev.last_update
+                        else "",
+                        "predicted_module": ev.module.value,
+                        "importance": f"{ev.importance:.3f}"
+                        if ev.importance is not None
+                        else "",
+                        "source_count": ev.source_count,
+                        "true_module": "",
+                        "card_summary": (ev.card_summary or "").replace("\n", " "),
+                        "detail_excerpt": (ev.detail_summary or "")[:_EXCERPT_CHARS].replace(
+                            "\n", " "
+                        ),
+                    }
+                )
+
+    by_module_counts = {
+        m.value: min(len(by_module.get(m.value, [])), per_module) for m in Module
+    }
+    available = {m.value: len(by_module.get(m.value, [])) for m in Module}
+    stats = {
+        "sampled": len(picked),
+        "window_days": days,
+        "since": since.isoformat(),
+        "by_module": by_module_counts,
+        "available_by_module": available,
+        "out": out_path,
+    }
+    _logger.info(
+        "[eval.sample-published] 导出 %d 条到 %s  窗口=%d天  分布=%s  库存=%s",
+        stats["sampled"],
+        out_path,
+        days,
+        by_module_counts,
+        available,
+    )
+    return stats
 
 
 # ---------------------------------------------------------------------------
@@ -286,6 +399,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="只标错误口径：true_module 空白视为预测正确（只在误分类行填正确模块）",
     )
 
+    s3 = sub.add_parser(
+        "sample-published",
+        help="按发布窗口分层抽样已发布事件（§1.1 连续 3 天日更产出抽检）",
+    )
+    s3.add_argument("--per-module", type=int, default=25)
+    s3.add_argument("--days", type=int, default=3, help="发布日窗口天数（默认 3）")
+    s3.add_argument("--out", default="eval_published_sample.csv")
+    s3.add_argument("--seed", type=int, default=42)
+
     sub.add_parser("cluster", help="自动评测误并 + 漏并率")
     sub.add_parser("gate", help="串卡自动指标汇总（分类需先人工标注）")
     return p
@@ -295,6 +417,12 @@ def main(argv: list[str] | None = None) -> None:
     args = _build_parser().parse_args(argv)
     if args.cmd == "sample-classify":
         print(sample_classify(args.per_module, args.out, args.seed))
+    elif args.cmd == "sample-published":
+        print(
+            sample_published(
+                args.per_module, args.out, days=args.days, seed=args.seed
+            )
+        )
     elif args.cmd == "score-classify":
         import json
 

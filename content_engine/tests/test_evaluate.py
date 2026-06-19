@@ -1,14 +1,20 @@
 """A 阶段评测单测：分类准确率读回打分（score_classify）。
 
 只测纯函数逻辑（CSV → 指标），不依赖 DB / pgvector：
-sample_classify / eval_cluster 依赖真实 DB 的 Vector 列，放到联调脚本里手动验证。
+sample_classify / sample_published / eval_cluster 依赖真实 DB 的 Vector 列，
+其抽样核心拆成纯函数 _stratified_pick 在此单测，整库导出放到联调脚本手动验证。
 """
 
 from __future__ import annotations
 
 import csv
+import random
 
-from content_engine.stages.evaluate import _CSV_FIELDS, score_classify
+from content_engine.stages.evaluate import (
+    _CSV_FIELDS,
+    _stratified_pick,
+    score_classify,
+)
 
 
 def _write_csv(path, rows):
@@ -89,3 +95,44 @@ def test_score_classify_per_module_precision_recall(tmp_path):
     assert tech["precision"] == 1.0
     # 混淆矩阵：真值 tech 被预测为 {tech:1, ai:1}
     assert r["confusion"]["tech"] == {"tech": 1, "ai": 1}
+
+
+# ---------------------------------------------------------------------------
+# sample-published 抽样核心：分层 + 每模块上限 + 确定性
+# ---------------------------------------------------------------------------
+def test_stratified_pick_caps_per_module():
+    by_module = {
+        "tech": list(range(100)),
+        "finance": list(range(100, 200)),
+        "ai": list(range(200, 300)),
+        "macro": list(range(300, 400)),
+    }
+    picked = _stratified_pick(by_module, per_module=25, rng=random.Random(42))
+    assert len(picked) == 100  # 四模块各 25
+    # 每模块恰好 25 条且来自各自池子
+    assert sum(1 for x in picked if x < 100) == 25
+    assert sum(1 for x in picked if 100 <= x < 200) == 25
+    assert sum(1 for x in picked if 200 <= x < 300) == 25
+    assert sum(1 for x in picked if 300 <= x < 400) == 25
+
+
+def test_stratified_pick_takes_all_when_short():
+    by_module = {"tech": [1, 2], "finance": [3], "ai": [], "macro": [4, 5, 6, 7]}
+    picked = _stratified_pick(by_module, per_module=25, rng=random.Random(0))
+    # 不足 per_module 则全取，缺失模块取 0
+    assert sorted(picked) == [1, 2, 3, 4, 5, 6, 7]
+
+
+def test_stratified_pick_deterministic_with_seed():
+    by_module = {"tech": list(range(50)), "finance": [], "ai": [], "macro": []}
+    a = _stratified_pick(by_module, per_module=10, rng=random.Random(7))
+    b = _stratified_pick(by_module, per_module=10, rng=random.Random(7))
+    assert a == b  # 同 seed 结果可复现
+
+
+def test_stratified_pick_does_not_mutate_input():
+    pool = list(range(30))
+    by_module = {"tech": pool}
+    _stratified_pick(by_module, per_module=5, rng=random.Random(1))
+    # 原始池子不被 shuffle 改动（内部对副本洗牌）
+    assert pool == list(range(30))
