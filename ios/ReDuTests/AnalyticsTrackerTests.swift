@@ -169,7 +169,8 @@ final class AnalyticsTrackerTests: XCTestCase {
         XCTAssertEqual(payload.osVersion, "17.0")
         XCTAssertEqual(payload.platform, "ios")
         XCTAssertGreaterThan(payload.tsClient, 0)
-        XCTAssertEqual(payload.props?["event_id"], AnyCodable(99))
-        XCTAssertEqual(payload.props?["action"], AnyCodable("add"))
+        let props = payload.props ?? [:]
+        XCTAssertEqual(props["event_id"], AnyCodable(99))
+        XCTAssertEqual(props["action"], AnyCodable("add"))
     }
 }

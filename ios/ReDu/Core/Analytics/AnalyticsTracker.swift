@@ -128,11 +128,13 @@ final class AnalyticsTracker {
         Int64(Date().timeIntervalSince1970 * 1000)
     }
 
-    static var bundleVersion: String {
+    /// `nonisolated`：让默认参数表达式可在非 MainActor 上下文求值；
+    /// 这两个值是只读的进程级常量，跨 actor 读取没有竞态。
+    nonisolated static var bundleVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
     }
 
-    static var systemVersion: String {
+    nonisolated static var systemVersion: String {
         #if canImport(UIKit)
         return UIDevice.current.systemVersion
         #else
