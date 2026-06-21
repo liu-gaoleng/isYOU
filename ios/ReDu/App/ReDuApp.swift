@@ -12,6 +12,7 @@ struct ReDuApp: App {
     @StateObject private var auth = AuthStore()
     @StateObject private var router = AppRouter()
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -22,7 +23,14 @@ struct ReDuApp: App {
                 .task { await auth.restore() }
                 .task { await listenTransactionUpdates() }
                 .task { await bootstrapPushNotifications() }
+                .task { AnalyticsTracker.shared.track(.appOpen) }
                 .onAppear { appDelegate.router = router }
+        }
+        .onChange(of: scenePhase) { phase in
+            // 进入后台立刻刷一次缓冲，避免事件被进程挂起吞掉。
+            if phase == .background {
+                Task { await AnalyticsTracker.shared.flushNow() }
+            }
         }
     }
 

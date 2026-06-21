@@ -58,7 +58,15 @@ final class PaywallViewModel: ObservableObject {
             case .success(let jws):
                 let status = try await billing.verify(signedTransaction: jws)
                 didPurchase = status.isMember
-                if !status.isMember {
+                if status.isMember {
+                    AnalyticsTracker.shared.track(
+                        .purchaseSuccess,
+                        props: [
+                            "plan": AnyCodable(row.plan.plan),
+                            "source": AnyCodable("purchase"),
+                        ]
+                    )
+                } else {
                     purchaseError = "购买已提交，会员未生效，请稍后在「我的」恢复购买"
                 }
                 return status

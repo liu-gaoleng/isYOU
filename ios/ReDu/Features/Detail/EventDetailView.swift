@@ -68,6 +68,12 @@ struct EventDetailView: View {
                 Image(systemName: "square.and.arrow.up")
                     .foregroundStyle(DSColor.ink2)
             }
+            .simultaneousGesture(TapGesture().onEnded {
+                AnalyticsTracker.shared.track(
+                    .share,
+                    props: ["event_id": AnyCodable(eventID)]
+                )
+            })
         }
     }
 

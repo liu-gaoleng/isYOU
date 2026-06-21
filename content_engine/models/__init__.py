@@ -18,6 +18,7 @@ from .enums import (
 from .observability import PipelineRun
 from .ops import (
     AdminMember,
+    AnalyticsEvent,
     AppOrder,
     AppUser,
     DeviceToken,
@@ -70,6 +71,7 @@ __all__ = [
     "ReadingHistory",
     "PushSetting",
     "DeviceToken",
+    "AnalyticsEvent",
     "IapTransaction",
     "Subscription",
     "PipelineRun",

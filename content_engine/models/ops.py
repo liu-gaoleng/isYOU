@@ -274,6 +274,45 @@ class DeviceToken(IdMixin, TimestampMixin, Base):
     invalid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+# ----------------------------------------------------------------------------
+# 阶段 4.3：自建埋点事件
+# 设计要点：
+# - 客户端批量上报；同一条入库一行。
+# - ``device_id`` 客户端 Keychain UUID，匿名稳定标识；登录后额外带 ``user_id``。
+# - ``ts_client`` 客户端事件发生时间；``created_at`` 入库时间，便于排查时差。
+# - ``props`` JSON 列承载事件级属性（如 event_id / module / plan / source），
+#   字段少且稀疏，避免列爆炸；查询用 PG `->>` 即可。
+# - 仅按 ``(name, created_at)`` 与 ``(user_id, created_at)`` 建索引，
+#   足以覆盖"按事件 / 按用户拉时间窗"两类常见漏斗查询，写入开销小。
+# ----------------------------------------------------------------------------
+class AnalyticsEvent(IdMixin, TimestampMixin, Base):
+    """自建埋点事件落库表。
+
+    - ``name``：事件名常量（``app_open`` / ``event_view`` / ``paywall_view`` /
+      ``purchase_success`` / ``push_open`` / ``search`` / ``favorite`` / ``share``）。
+    - ``device_id``：客户端匿名标识（Keychain UUID），无登录态也能埋。
+    - ``user_id``：JWT 解出（未登录为 NULL，不在端点强制鉴权）。
+    - ``app_version`` / ``os_version`` / ``platform``：分版本 / 分系统看留存。
+    - ``ts_client``：客户端时间戳（毫秒），用于按用户本地时序还原漏斗。
+    - ``props``：稀疏属性 dict（每事件 0-4 个 key），如 ``{"event_id": 123, "module": "tech"}``。
+    """
+
+    __tablename__ = "analytics_events"
+    __table_args__ = (
+        Index("ix_analytics_events_name_created_at", "name", "created_at"),
+        Index("ix_analytics_events_user_id_created_at", "user_id", "created_at"),
+    )
+
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    device_id: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    app_version: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    os_version: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    platform: Mapped[str] = mapped_column(String(16), nullable=False, default="ios")
+    ts_client: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    props: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
 __all__ = [
     "AppUser",
     "AppOrder",
@@ -286,4 +325,5 @@ __all__ = [
     "ReadingHistory",
     "PushSetting",
     "DeviceToken",
+    "AnalyticsEvent",
 ]

@@ -35,6 +35,7 @@ struct PaywallView: View {
             }
         }
         .task { await vm.load() }
+        .onAppear { AnalyticsTracker.shared.track(.paywallView) }
     }
 
     @ViewBuilder

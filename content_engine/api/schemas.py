@@ -311,3 +311,53 @@ class PipelineRunItem(BaseModel):
     llm_cost: float = 0.0
     error: str | None = None
     stages: dict = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# 阶段 4.3：自建埋点上报 schema
+# ---------------------------------------------------------------------------
+# 允许的事件名白名单：避免客户端误传任意字符串导致表膨胀。
+ANALYTICS_EVENT_NAMES = frozenset({
+    "app_open",
+    "event_view",
+    "paywall_view",
+    "purchase_success",
+    "push_open",
+    "search",
+    "favorite",
+    "share",
+})
+
+
+class AnalyticsEventIn(BaseModel):
+    """客户端上送的单条埋点事件。
+
+    - ``name``：事件名（白名单内）；非白名单整批 422。
+    - ``device_id``：Keychain 持久化的匿名 UUID；用户未登录也能埋。
+    - ``app_version`` / ``os_version`` / ``platform``：分版本看留存。
+    - ``ts_client``：客户端事件发生时间（毫秒，UTC）。
+    - ``props``：稀疏属性 dict（每事件 0-4 个 key），如 ``{"event_id": 123}``。
+    """
+
+    name: str = Field(min_length=1, max_length=64)
+    device_id: str = Field(min_length=1, max_length=64)
+    app_version: str = Field(default="", max_length=32)
+    os_version: str = Field(default="", max_length=32)
+    platform: str = Field(default="ios", pattern="^(ios|android|web)$")
+    ts_client: int = Field(default=0, ge=0)
+    props: dict | None = None
+
+
+class AnalyticsBatchRequest(BaseModel):
+    """批量上送（典型 5-20 条/批）。
+
+    单批硬上限 100 条，避免单次请求过大；超过返回 422，由客户端拆批。
+    """
+
+    events: list[AnalyticsEventIn] = Field(min_length=1, max_length=100)
+
+
+class AnalyticsBatchResponse(BaseModel):
+    """批量上送结果。"""
+
+    accepted: int  # 入库行数

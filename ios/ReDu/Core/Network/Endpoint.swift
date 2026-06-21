@@ -56,6 +56,9 @@ enum Endpoint {
     case registerDevice(body: Data)
     case unregisterDevice(token: String)
 
+    // 自建埋点（阶段 4.3；不强制鉴权，匿名也能埋；带 token 时服务端会写 user_id）
+    case analyticsEvents(body: Data)
+
     var method: HTTPMethod {
         switch self {
         case .dailyBrief, .feed, .ranking, .eventDetail, .search,
@@ -63,7 +66,7 @@ enum Endpoint {
              .listFavorites, .listHistory, .getSettings:
             return .get
         case .appleLogin, .devLogin, .billingVerify, .billingRestore,
-             .addFavorite, .recordHistory, .registerDevice:
+             .addFavorite, .recordHistory, .registerDevice, .analyticsEvents:
             return .post
         case .updateSettings:
             return .put
@@ -78,7 +81,10 @@ enum Endpoint {
         case .me, .billingVerify, .billingRestore, .membership,
              .addFavorite, .removeFavorite, .listFavorites,
              .recordHistory, .listHistory, .clearHistory, .getSettings, .updateSettings,
-             .registerDevice, .unregisterDevice:
+             .registerDevice, .unregisterDevice,
+             .analyticsEvents:
+            // analytics 端点本身不强制 auth（服务端 get_optional_user）；
+            // 客户端在已登录时仍要带上 token，服务端便能把事件归属到 user_id。
             return true
         default:
             return false
@@ -107,6 +113,7 @@ enum Endpoint {
         case .getSettings, .updateSettings: return "\(p)/me/settings"
         case .registerDevice: return "\(p)/me/devices"
         case .unregisterDevice(let token): return "\(p)/me/devices/\(token)"
+        case .analyticsEvents: return "\(p)/analytics/events"
         }
     }
 
@@ -144,7 +151,8 @@ enum Endpoint {
         switch self {
         case let .appleLogin(body), let .devLogin(body),
              let .billingVerify(body), let .billingRestore(body),
-             let .updateSettings(body), let .registerDevice(body):
+             let .updateSettings(body), let .registerDevice(body),
+             let .analyticsEvents(body):
             return body
         default:
             return nil

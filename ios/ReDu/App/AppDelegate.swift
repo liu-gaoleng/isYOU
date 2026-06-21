@@ -80,6 +80,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         let userInfo = response.notification.request.content.userInfo
         guard let route = Self.parseRoute(from: userInfo) else { return }
         Task { @MainActor in
+            if case let .eventDetail(id, _) = route {
+                AnalyticsTracker.shared.track(.pushOpen, props: ["event_id": AnyCodable(id)])
+            }
             router?.route(to: route, tab: .home)
         }
     }

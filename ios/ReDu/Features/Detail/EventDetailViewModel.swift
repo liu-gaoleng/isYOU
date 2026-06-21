@@ -29,6 +29,7 @@ final class EventDetailViewModel: ObservableObject {
         do {
             detail = try await repo.eventDetail(id: id)
             state = .loaded
+            AnalyticsTracker.shared.track(.eventView, props: ["event_id": AnyCodable(id)])
             if isAuthenticated {
                 await recordHistory(id: id)
                 await syncFavorite(id: id)
@@ -51,6 +52,13 @@ final class EventDetailViewModel: ObservableObject {
                 result = try await authRepo.addFavorite(eventID: id)
             }
             isFavorited = result.isFavorited
+            AnalyticsTracker.shared.track(
+                .favorite,
+                props: [
+                    "event_id": AnyCodable(id),
+                    "action": AnyCodable(result.isFavorited ? "add" : "remove"),
+                ]
+            )
         } catch {
             // 失败保持原状态，下次重试。
         }

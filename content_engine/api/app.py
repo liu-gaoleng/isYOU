@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from ..logging_config import configure_logging
-from .routers import auth, billing, brief, me, metrics, review
+from .routers import analytics, auth, billing, brief, me, metrics, review
 
 configure_logging()
 
@@ -46,3 +46,4 @@ app.include_router(me.router, prefix="/api/v1")
 app.include_router(billing.router, prefix="/api/v1")
 app.include_router(review.router, prefix="/api/v1")
 app.include_router(metrics.router, prefix="/api/v1")
+app.include_router(analytics.router, prefix="/api/v1")
