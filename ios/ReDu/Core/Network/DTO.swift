@@ -132,6 +132,42 @@ struct LoginResponse: Codable {
     }
 }
 
+// MARK: - 会员订阅 / IAP（对齐 schemas 阶段 3.2）
+
+/// 订阅档位，对齐 schemas.PlanItem。
+struct PlanItem: Codable, Identifiable, Hashable {
+    let plan: String          // monthly / quarterly / yearly
+    let productId: String
+    let periodDays: Int
+
+    var id: String { productId }
+
+    enum CodingKeys: String, CodingKey {
+        case plan
+        case productId = "product_id"
+        case periodDays = "period_days"
+    }
+}
+
+/// 会员态，对齐 schemas.MembershipStatus。
+struct MembershipStatus: Codable, Hashable {
+    let isMember: Bool
+    let memberTier: String
+    let memberExpireAt: Date?
+    let plan: String?
+    let autoRenew: Bool
+    let subscriptionStatus: String?   // active / expired / refunded
+
+    enum CodingKeys: String, CodingKey {
+        case isMember = "is_member"
+        case memberTier = "member_tier"
+        case memberExpireAt = "member_expire_at"
+        case plan
+        case autoRenew = "auto_renew"
+        case subscriptionStatus = "subscription_status"
+    }
+}
+
 // MARK: - 收藏 / 历史 / 设置（对齐 schemas 阶段 3.4）
 
 /// 收藏状态切换结果，对齐 schemas.FavoriteState。

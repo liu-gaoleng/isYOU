@@ -36,6 +36,12 @@ enum Endpoint {
     case devLogin(body: Data)
     case me
 
+    // 会员订阅 / IAP
+    case billingPlans
+    case billingVerify(body: Data)
+    case billingRestore(body: Data)
+    case membership
+
     // 收藏 / 历史 / 设置（均需登录）
     case addFavorite(eventID: Int)
     case removeFavorite(eventID: Int)
@@ -49,9 +55,11 @@ enum Endpoint {
     var method: HTTPMethod {
         switch self {
         case .dailyBrief, .feed, .ranking, .eventDetail, .search,
-             .me, .listFavorites, .listHistory, .getSettings:
+             .me, .billingPlans, .membership,
+             .listFavorites, .listHistory, .getSettings:
             return .get
-        case .appleLogin, .devLogin, .addFavorite, .recordHistory:
+        case .appleLogin, .devLogin, .billingVerify, .billingRestore,
+             .addFavorite, .recordHistory:
             return .post
         case .updateSettings:
             return .put
@@ -63,7 +71,8 @@ enum Endpoint {
     /// 是否需要在请求头注入 Bearer token。
     var requiresAuth: Bool {
         switch self {
-        case .me, .addFavorite, .removeFavorite, .listFavorites,
+        case .me, .billingVerify, .billingRestore, .membership,
+             .addFavorite, .removeFavorite, .listFavorites,
              .recordHistory, .listHistory, .clearHistory, .getSettings, .updateSettings:
             return true
         default:
@@ -82,6 +91,10 @@ enum Endpoint {
         case .appleLogin: return "\(p)/auth/apple"
         case .devLogin: return "\(p)/auth/dev-login"
         case .me: return "\(p)/auth/me"
+        case .billingPlans: return "\(p)/billing/plans"
+        case .billingVerify: return "\(p)/billing/verify"
+        case .billingRestore: return "\(p)/billing/restore"
+        case .membership: return "\(p)/me/membership"
         case .addFavorite(let id), .removeFavorite(let id): return "\(p)/me/favorites/\(id)"
         case .listFavorites: return "\(p)/me/favorites"
         case .recordHistory(let id): return "\(p)/me/history/\(id)"
@@ -122,7 +135,9 @@ enum Endpoint {
     /// 请求体（仅 POST/PUT 带）。
     var body: Data? {
         switch self {
-        case let .appleLogin(body), let .devLogin(body), let .updateSettings(body):
+        case let .appleLogin(body), let .devLogin(body),
+             let .billingVerify(body), let .billingRestore(body),
+             let .updateSettings(body):
             return body
         default:
             return nil

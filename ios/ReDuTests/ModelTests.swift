@@ -98,4 +98,41 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(APIError.http(status: 500), APIError.http(status: 500))
         XCTAssertNotEqual(APIError.http(status: 500), APIError.http(status: 404))
     }
+
+    // MARK: - 会员订阅 / IAP DTO（snake_case 映射）
+
+    func test_planItem_decodesSnakeCase() throws {
+        let json = """
+        [
+          {"plan": "monthly", "product_id": "com.redu.app.member.monthly", "period_days": 30},
+          {"plan": "yearly", "product_id": "com.redu.app.member.yearly", "period_days": 365}
+        ]
+        """.data(using: .utf8)!
+        let plans = try decoder().decode([PlanItem].self, from: json)
+        XCTAssertEqual(plans.count, 2)
+        XCTAssertEqual(plans[0].productId, "com.redu.app.member.monthly")
+        XCTAssertEqual(plans[1].periodDays, 365)
+    }
+
+    func test_membershipStatus_decodesActiveAndFree() throws {
+        let active = """
+        {"is_member": true, "member_tier": "member", "member_expire_at": "2026-12-31T00:00:00+00:00",
+         "plan": "yearly", "auto_renew": true, "subscription_status": "active"}
+        """.data(using: .utf8)!
+        let a = try decoder().decode(MembershipStatus.self, from: active)
+        XCTAssertTrue(a.isMember)
+        XCTAssertEqual(a.plan, "yearly")
+        XCTAssertEqual(a.subscriptionStatus, "active")
+        XCTAssertTrue(a.autoRenew)
+        XCTAssertNotNil(a.memberExpireAt)
+
+        let free = """
+        {"is_member": false, "member_tier": "free", "member_expire_at": null,
+         "plan": null, "auto_renew": false, "subscription_status": null}
+        """.data(using: .utf8)!
+        let f = try decoder().decode(MembershipStatus.self, from: free)
+        XCTAssertFalse(f.isMember)
+        XCTAssertNil(f.plan)
+        XCTAssertNil(f.memberExpireAt)
+    }
 }

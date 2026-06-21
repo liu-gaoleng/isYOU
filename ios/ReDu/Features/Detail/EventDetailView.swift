@@ -14,6 +14,7 @@ struct EventDetailView: View {
     @StateObject private var vm = EventDetailViewModel()
     @Environment(\.openURL) private var openURL
     @State private var showLogin = false
+    @State private var showPaywall = false
 
     var body: some View {
         ZStack {
@@ -24,6 +25,14 @@ struct EventDetailView: View {
         .toolbar { toolbarContent }
         .sheet(isPresented: $showLogin) {
             LoginView().environmentObject(auth)
+        }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView { status in
+                Task {
+                    await auth.applyMembership(status)
+                    await vm.load(id: eventID, isAuthenticated: auth.isAuthenticated)
+                }
+            }
         }
         .task { await vm.load(id: eventID, isAuthenticated: auth.isAuthenticated) }
     }
@@ -233,8 +242,7 @@ struct EventDetailView: View {
 
     private func paywallAction() {
         if auth.isAuthenticated {
-            // M3 接入 StoreKit 2 内购；当前阶段先占位提示。
-            // TODO(M3): 拉起 IAP 购买流程
+            showPaywall = true
         } else {
             showLogin = true
         }

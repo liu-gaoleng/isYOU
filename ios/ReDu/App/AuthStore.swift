@@ -88,6 +88,25 @@ final class AuthStore: ObservableObject {
         }
     }
 
+    /// 购买成功：用后端返回的会员态局部更新 user，避免再调 /me。
+    /// 若本地无 user（理论上购买必登录），则降级为 refreshProfile。
+    func applyMembership(_ status: MembershipStatus) async {
+        guard let current = user else {
+            await refreshProfile()
+            return
+        }
+        let updated = UserProfile(
+            id: current.id,
+            email: current.email,
+            displayName: current.displayName,
+            createdVia: current.createdVia,
+            memberTier: status.memberTier,
+            isMember: status.isMember,
+            memberExpireAt: status.memberExpireAt
+        )
+        phase = .authenticated(updated)
+    }
+
     private func performLogin(_ task: @escaping () async throws -> LoginResponse) async {
         isLoggingIn = true
         loginError = nil
