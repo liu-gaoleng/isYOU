@@ -158,3 +158,32 @@ func makeMembership(
 func makePlan(plan: String = "monthly", productId: String = "com.redu.app.member.monthly", days: Int = 30) -> PlanItem {
     PlanItem(plan: plan, productId: productId, periodDays: days)
 }
+
+// MARK: - 4.2 APNs 测试替身
+
+/// 可编排的假设备仓库：记录调用参数 + 返回预置 token info；支持错误注入。
+final class FakeDeviceRepository: DeviceRepositoryProtocol {
+    var registerResult: DeviceTokenInfo?
+    var registerError: Error?
+    var unregisterError: Error?
+
+    private(set) var registerCalls: [(token: String, bundleId: String?, environment: String)] = []
+    private(set) var unregisterCalls: [String] = []
+
+    func register(token: String, bundleId: String?, environment: String) async throws -> DeviceTokenInfo {
+        registerCalls.append((token, bundleId, environment))
+        if let e = registerError { throw e }
+        return registerResult ?? DeviceTokenInfo(
+            token: token,
+            environment: environment,
+            bundleId: bundleId,
+            isActive: true,
+            lastSeenAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+    }
+
+    func unregister(token: String) async throws {
+        unregisterCalls.append(token)
+        if let e = unregisterError { throw e }
+    }
+}

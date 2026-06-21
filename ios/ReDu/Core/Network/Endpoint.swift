@@ -52,6 +52,10 @@ enum Endpoint {
     case getSettings
     case updateSettings(body: Data)
 
+    // 设备 token 注册（阶段 4.2 APNs 推送，需登录）
+    case registerDevice(body: Data)
+    case unregisterDevice(token: String)
+
     var method: HTTPMethod {
         switch self {
         case .dailyBrief, .feed, .ranking, .eventDetail, .search,
@@ -59,11 +63,11 @@ enum Endpoint {
              .listFavorites, .listHistory, .getSettings:
             return .get
         case .appleLogin, .devLogin, .billingVerify, .billingRestore,
-             .addFavorite, .recordHistory:
+             .addFavorite, .recordHistory, .registerDevice:
             return .post
         case .updateSettings:
             return .put
-        case .removeFavorite, .clearHistory:
+        case .removeFavorite, .clearHistory, .unregisterDevice:
             return .delete
         }
     }
@@ -73,7 +77,8 @@ enum Endpoint {
         switch self {
         case .me, .billingVerify, .billingRestore, .membership,
              .addFavorite, .removeFavorite, .listFavorites,
-             .recordHistory, .listHistory, .clearHistory, .getSettings, .updateSettings:
+             .recordHistory, .listHistory, .clearHistory, .getSettings, .updateSettings,
+             .registerDevice, .unregisterDevice:
             return true
         default:
             return false
@@ -100,6 +105,8 @@ enum Endpoint {
         case .recordHistory(let id): return "\(p)/me/history/\(id)"
         case .listHistory, .clearHistory: return "\(p)/me/history"
         case .getSettings, .updateSettings: return "\(p)/me/settings"
+        case .registerDevice: return "\(p)/me/devices"
+        case .unregisterDevice(let token): return "\(p)/me/devices/\(token)"
         }
     }
 
@@ -137,7 +144,7 @@ enum Endpoint {
         switch self {
         case let .appleLogin(body), let .devLogin(body),
              let .billingVerify(body), let .billingRestore(body),
-             let .updateSettings(body):
+             let .updateSettings(body), let .registerDevice(body):
             return body
         default:
             return nil

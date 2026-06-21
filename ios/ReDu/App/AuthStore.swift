@@ -76,6 +76,9 @@ final class AuthStore: ObservableObject {
 
     /// 登出：清空 token 与本地态。
     func logout() {
+        // 阶段 4.2：先尝试通知后端把当前设备 token 软删，再清本地凭据。
+        // unregister 内部已用 try?，失败不阻塞登出。
+        Task { await PushNotificationCoordinator.shared.unregisterCurrentDevice() }
         tokenStore.clear()
         phase = .anonymous
     }

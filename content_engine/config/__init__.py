@@ -8,6 +8,7 @@
 
 from .settings import (
     AdminSettings,
+    ApnsSettings,
     CelerySettings,
     EmbeddingSettings,
     GuardSettings,
@@ -28,6 +29,7 @@ __all__ = [
     "GuardSettings",
     "AdminSettings",
     "CelerySettings",
+    "ApnsSettings",
     "settings",
     "get_settings",
 ]

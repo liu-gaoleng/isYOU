@@ -252,3 +252,21 @@ struct PushSettings: Codable, Equatable {
 
     static let `default` = PushSettings(dailyPush: true, pushTime: "08:00", breakingPush: false)
 }
+
+// MARK: - 设备 token 注册（对齐 schemas 阶段 4.2）
+
+/// 设备 token 注册结果，对齐 schemas.DeviceTokenInfo。
+struct DeviceTokenInfo: Codable, Equatable {
+    let token: String
+    let environment: String
+    let bundleId: String?
+    let isActive: Bool
+    let lastSeenAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case token, environment
+        case bundleId = "bundle_id"
+        case isActive = "is_active"
+        case lastSeenAt = "last_seen_at"
+    }
+}

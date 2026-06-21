@@ -25,6 +25,7 @@ celery_app = Celery(
     include=[
         "content_engine.tasks.pipeline_tasks",
         "content_engine.tasks.billing_tasks",
+        "content_engine.tasks.push_tasks",
     ],
 )
 
@@ -57,6 +58,11 @@ celery_app.conf.beat_schedule = {
     "downgrade-expired-members-hourly": {
         "task": "content_engine.tasks.billing_tasks.downgrade_expired_members",
         "schedule": crontab(minute=0),
+    },
+    # 每分钟唤醒 APNs 推送 dispatcher（按用户 push_time=HH:MM 匹配下发）
+    "dispatch-daily-briefs-every-minute": {
+        "task": "content_engine.tasks.push_tasks.dispatch_daily_briefs",
+        "schedule": crontab(minute="*"),
     },
 }
 

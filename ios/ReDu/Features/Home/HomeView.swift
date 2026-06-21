@@ -8,6 +8,7 @@ import SwiftUI
 
 struct HomeView: View {
     @StateObject private var vm = HomeViewModel()
+    @EnvironmentObject private var router: AppRouter
     @State private var path: [AppRoute] = []
 
     var body: some View {
@@ -34,6 +35,12 @@ struct HomeView: View {
                 }
             }
             .task { await vm.load() }
+            // 阶段 4.2：APNs 点击直达——router 发出的待跳路由压入本 Tab 的 path。
+            .onChange(of: router.pendingRoute) { route in
+                guard let route else { return }
+                path.append(route)
+                router.clearPendingRoute()
+            }
         }
     }
 

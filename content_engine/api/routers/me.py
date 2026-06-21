@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, desc, select
 
 from content_engine.models import (
+    DeviceToken,
     Event,
     EventStatus,
     Favorite,
@@ -33,6 +34,8 @@ from content_engine.models import (
 
 from ..deps import get_current_user, is_member
 from ..schemas import (
+    DeviceRegisterRequest,
+    DeviceTokenInfo,
     FavoriteCard,
     FavoriteState,
     HistoryCard,
@@ -265,4 +268,62 @@ def get_membership(user: User = Depends(get_current_user)) -> MembershipStatus:
             plan=sub.plan if sub else None,
             auto_renew=sub.auto_renew if sub else False,
             subscription_status=sub.status if sub else None,
+        )
+
+
+# ---------------------------------------------------------------------------
+# 设备 token 注册（阶段 4.2：APNs 推送链路起点）
+# ---------------------------------------------------------------------------
+@router.post("/devices", response_model=DeviceTokenInfo)
+def register_device(
+    payload: DeviceRegisterRequest, user: User = Depends(get_current_user)
+) -> DeviceTokenInfo:
+    """注册当前设备的 APNs token（按 token 唯一约束 upsert）。
+
+    - 同 token 已存在 → 改绑到当前 user_id（防换户残留旧绑定）；
+    - 同时刷新 ``last_seen_at`` 并清空 ``invalid_at``（重新激活）；
+    - ``environment`` 必须是 ``production`` / ``sandbox``（schema 已校验）。
+    """
+    now = datetime.now(timezone.utc)
+    with get_session() as s:
+        row = s.execute(
+            select(DeviceToken).where(DeviceToken.token == payload.token)
+        ).scalar_one_or_none()
+        if row is None:
+            row = DeviceToken(
+                user_id=user.id,
+                token=payload.token,
+                bundle_id=payload.bundle_id or "",
+                environment=payload.environment,
+                last_seen_at=now,
+            )
+            s.add(row)
+        else:
+            row.user_id = user.id
+            row.environment = payload.environment
+            if payload.bundle_id is not None:
+                row.bundle_id = payload.bundle_id
+            row.last_seen_at = now
+            row.invalid_at = None
+        s.flush()
+        return DeviceTokenInfo(
+            token=row.token,
+            environment=row.environment,
+            bundle_id=row.bundle_id or None,
+            is_active=row.invalid_at is None,
+            last_seen_at=row.last_seen_at,
+        )
+
+
+@router.delete("/devices/{token}", status_code=204)
+def unregister_device(token: str, user: User = Depends(get_current_user)) -> None:
+    """解绑当前设备 token（登出 / 关闭推送权限 / 卸载场景）。
+
+    幂等：仅删本人 token；他人的 token 即便误传也不会被影响（user_id 守门）。
+    """
+    with get_session() as s:
+        s.execute(
+            delete(DeviceToken).where(
+                DeviceToken.user_id == user.id, DeviceToken.token == token
+            )
         )

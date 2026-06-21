@@ -19,7 +19,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from content_engine.config import settings
-from content_engine.models import Favorite, PushSetting, ReadingHistory, User
+from content_engine.models import DeviceToken, Favorite, PushSetting, ReadingHistory, User
 from content_engine.models.enums import EventStatus, Module
 from content_engine.services import auth as auth_service
 
@@ -61,7 +61,7 @@ def client(monkeypatch):
         poolclass=StaticPool,
     )
     # 只建 user-domain 表（无 pgvector），外加 users
-    for model in (User, Favorite, ReadingHistory, PushSetting):
+    for model in (User, Favorite, ReadingHistory, PushSetting, DeviceToken):
         model.__table__.create(engine)
     SessionLocal = sessionmaker(engine, expire_on_commit=False, future=True)
 
@@ -231,3 +231,79 @@ def test_update_settings_only_changes_passed_fields(client):
     body = client.get("/api/v1/me/settings", headers=client.auth_headers).json()
     assert body["daily_push"] is False  # 第一次的改动保留
     assert body["push_time"] == "09:00"
+
+
+# ---------------------------------------------------------------------------
+# 阶段 4.2：设备 token 注册（APNs 推送链路起点）
+# ---------------------------------------------------------------------------
+_TOKEN_A = "a" * 64
+_TOKEN_B = "b" * 64
+
+
+def test_devices_requires_auth(client):
+    r = client.post("/api/v1/me/devices", json={"token": _TOKEN_A})
+    assert r.status_code == 401
+
+
+def test_register_device_creates_row(client):
+    r = client.post(
+        "/api/v1/me/devices",
+        headers=client.auth_headers,
+        json={"token": _TOKEN_A, "environment": "sandbox", "bundle_id": "app.redu.ios"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["token"] == _TOKEN_A
+    assert body["environment"] == "sandbox"
+    assert body["bundle_id"] == "app.redu.ios"
+    assert body["is_active"] is True
+    assert body["last_seen_at"] is not None
+
+
+def test_register_device_upsert_same_token(client):
+    client.post(
+        "/api/v1/me/devices",
+        headers=client.auth_headers,
+        json={"token": _TOKEN_A, "environment": "sandbox"},
+    )
+    # 二次注册改 env，不应建第二行
+    r = client.post(
+        "/api/v1/me/devices",
+        headers=client.auth_headers,
+        json={"token": _TOKEN_A, "environment": "production"},
+    )
+    assert r.status_code == 200
+    assert r.json()["environment"] == "production"
+
+
+def test_register_device_rejects_bad_env(client):
+    r = client.post(
+        "/api/v1/me/devices",
+        headers=client.auth_headers,
+        json={"token": _TOKEN_A, "environment": "staging"},
+    )
+    assert r.status_code == 422
+
+
+def test_register_device_rejects_short_token(client):
+    r = client.post(
+        "/api/v1/me/devices",
+        headers=client.auth_headers,
+        json={"token": "abc"},
+    )
+    assert r.status_code == 422
+
+
+def test_unregister_device(client):
+    client.post(
+        "/api/v1/me/devices",
+        headers=client.auth_headers,
+        json={"token": _TOKEN_A},
+    )
+    r = client.delete(f"/api/v1/me/devices/{_TOKEN_A}", headers=client.auth_headers)
+    assert r.status_code == 204
+
+
+def test_unregister_device_idempotent(client):
+    r = client.delete(f"/api/v1/me/devices/{_TOKEN_B}", headers=client.auth_headers)
+    assert r.status_code == 204  # 不存在也不报错

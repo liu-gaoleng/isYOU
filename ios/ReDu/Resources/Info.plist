@@ -33,6 +33,11 @@
 	</array>
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
+	<!-- 阶段 4.2：APNs 远端推送后台模式（系统在 App 后台时仍唤起以接收 silent/visible push）。 -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<!-- 本地联调允许 http://127.0.0.1 明文；上线改用 HTTPS 域名后移除 -->

@@ -6,5 +6,8 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- 阶段 4.2：APNs 远端推送。开发签名用 development，上 App Store 时改 production。 -->
+	<key>aps-environment</key>
+	<string>development</string>
 </dict>
 </plist>

@@ -244,6 +244,36 @@ class PushSetting(IdMixin, TimestampMixin, Base):
     breaking_push: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
+# ----------------------------------------------------------------------------
+# 阶段 4.2：APNs 设备 token 注册表
+# 每台已授权推送的设备一行；登出/卸载时删除；同 token 复登换户时按唯一约束升级。
+# ----------------------------------------------------------------------------
+class DeviceToken(IdMixin, TimestampMixin, Base):
+    """APNs 设备 token 注册表。
+
+    - ``token``：APNs 下发的 64 字节 hex 字符串，全局唯一（同设备复登换户时按
+      唯一约束 upsert 至最新 user_id）。
+    - ``environment``：``sandbox`` / ``production``，决定推送下发的 APNs 主机。
+    - ``bundle_id``：客户端自报，便于多 bundle 共用一个后端时分流。
+    - ``last_seen_at``：每次客户端启动注册时更新，用于清理长期失活设备。
+    - ``invalid_at``：APNs 410/Unregistered 时回写，作为软删墓碑。
+    """
+
+    __tablename__ = "device_tokens"
+    __table_args__ = (
+        UniqueConstraint("token", name="uq_device_tokens_token"),
+        Index("ix_device_tokens_user_id", "user_id"),
+        Index("ix_device_tokens_invalid_at", "invalid_at"),
+    )
+
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    token: Mapped[str] = mapped_column(String(255), nullable=False)
+    bundle_id: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    environment: Mapped[str] = mapped_column(String(16), nullable=False, default="production")
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    invalid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 __all__ = [
     "AppUser",
     "AppOrder",
@@ -255,4 +285,5 @@ __all__ = [
     "Favorite",
     "ReadingHistory",
     "PushSetting",
+    "DeviceToken",
 ]

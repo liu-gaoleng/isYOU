@@ -151,6 +151,33 @@ class PushSettingsUpdate(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# 阶段 4.2：设备 token 注册（APNs 推送链路起点）
+# ---------------------------------------------------------------------------
+class DeviceRegisterRequest(BaseModel):
+    """设备 token 注册请求。
+
+    - ``token``：APNs deviceToken 的 hex 字符串（64 字符），iOS 端在
+      ``didRegisterForRemoteNotificationsWithDeviceToken`` 中将 Data 转 hex；
+    - ``bundle_id``：可选，自报 bundle 便于后端日志归因；
+    - ``environment``：``sandbox`` / ``production``，决定下发的 APNs 主机。
+    """
+
+    token: str = Field(min_length=16, max_length=255, description="APNs hex device token")
+    bundle_id: str | None = Field(default=None, max_length=128)
+    environment: str = Field(default="production", pattern="^(production|sandbox)$")
+
+
+class DeviceTokenInfo(BaseModel):
+    """设备 token 注册结果（返回给客户端用于自检）。"""
+
+    token: str
+    environment: str
+    bundle_id: str | None = None
+    is_active: bool = True
+    last_seen_at: datetime | None = None
+
+
+# ---------------------------------------------------------------------------
 # 阶段 3.2：会员订阅 / Apple IAP 收据校验 schema
 # ---------------------------------------------------------------------------
 class PlanItem(BaseModel):

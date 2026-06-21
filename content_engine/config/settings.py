@@ -319,6 +319,53 @@ class CelerySettings(BaseSettings):
     )
 
 
+class ApnsSettings(BaseSettings):
+    """阶段 4.2：APNs（HTTP/2 + token-based ES256 JWT）推送配置。
+
+    凭证缺失时不抛错：推送任务会跳过实际下发（``PushRecord.audience`` 仍记账），
+    便于纯后端单测和未配证书的灰度环境继续跑。
+
+    - ``team_id`` / ``key_id`` / ``private_key_path``：App Store Connect 下载的
+      .p8 私钥及其元数据，APNs 用其生成 ES256 JWT；
+    - ``bundle_id``：与 iOS app id 一致，会写到 ``apns-topic`` 头；
+    - ``environment``：``production`` → api.push.apple.com，``sandbox`` →
+      api.sandbox.push.apple.com；同后端可同时下发到两个环境（按设备 token 上
+      报时记的 environment 字段分流）。
+    - ``jwt_ttl_seconds``：APNs 要求 < 1h，默认 50min；每次发送时若过期则刷新。
+    """
+
+    team_id: str = Field(default="", validation_alias="RD_APNS_TEAM_ID")
+    key_id: str = Field(default="", validation_alias="RD_APNS_KEY_ID")
+    bundle_id: str = Field(default="", validation_alias="RD_APNS_BUNDLE_ID")
+    private_key_path: str = Field(default="", validation_alias="RD_APNS_PRIVATE_KEY_PATH")
+    environment: str = Field(
+        default="production", validation_alias="RD_APNS_ENVIRONMENT"
+    )
+    jwt_ttl_seconds: int = Field(default=3000, validation_alias="RD_APNS_JWT_TTL_SECONDS")
+    request_timeout: float = Field(
+        default=10.0, validation_alias="RD_APNS_REQUEST_TIMEOUT"
+    )
+
+    @property
+    def configured(self) -> bool:
+        """是否凭证齐全（任何一项缺失都视为未配置，干运行）。"""
+        return all([self.team_id, self.key_id, self.bundle_id, self.private_key_path])
+
+    @property
+    def host(self) -> str:
+        return (
+            "api.push.apple.com"
+            if self.environment == "production"
+            else "api.sandbox.push.apple.com"
+        )
+
+    model_config = SettingsConfigDict(
+        env_file=_ENV_FILE,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
 class Settings(BaseSettings):
     """全局配置入口。"""
 
@@ -343,6 +390,7 @@ class Settings(BaseSettings):
     auth: AuthSettings = Field(default_factory=AuthSettings)
     billing: BillingSettings = Field(default_factory=BillingSettings)
     celery: CelerySettings = Field(default_factory=CelerySettings)
+    apns: ApnsSettings = Field(default_factory=ApnsSettings)
 
     model_config = SettingsConfigDict(
         env_file=_ENV_FILE,
@@ -362,4 +410,4 @@ def get_settings() -> Settings:
 settings = get_settings()
 
 
-__all__ = ["Settings", "LLMSettings", "ThresholdSettings", "EmbeddingSettings", "RankingSettings", "GuardSettings", "AdminSettings", "AuthSettings", "BillingSettings", "CelerySettings", "settings", "get_settings"]
+__all__ = ["Settings", "LLMSettings", "ThresholdSettings", "EmbeddingSettings", "RankingSettings", "GuardSettings", "AdminSettings", "AuthSettings", "BillingSettings", "CelerySettings", "ApnsSettings", "settings", "get_settings"]
