@@ -9,4 +9,5 @@ enum AppRoute: Hashable {
     case eventDetail(id: Int, title: String?)
     case favorites
     case history
+    case membership
 }

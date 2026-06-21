@@ -32,6 +32,8 @@ struct ProfileView: View {
                     FavoritesListView(vm: vm)
                 case .history:
                     HistoryListView(vm: vm)
+                case .membership:
+                    MembershipView()
                 }
             }
         }
@@ -119,6 +121,11 @@ struct ProfileView: View {
 
     private var entries: some View {
         VStack(spacing: 0) {
+            NavigationLink(value: AppRoute.membership) {
+                entryRow(icon: "crown.fill", title: "我的会员")
+            }
+            .buttonStyle(.plain)
+            Divider().overlay(DSColor.line)
             NavigationLink(value: AppRoute.favorites) {
                 entryRow(icon: "bookmark.fill", title: "我的收藏")
             }
