@@ -70,6 +70,10 @@ jobs:
     name: iOS build (Xcode)
     runs-on: macos-15
     timeout-minutes: 25
+    # contents: write 仅为失败时把日志节选发到 commit comment（公开仓库 commit
+    # comment 可匿名 API 读取，而 job logs 接口需登录——便于无凭证排查）。
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -124,4 +128,21 @@ jobs:
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
-            test
+            test 2>&1 | tee test-output.txt
+
+      - name: Post failure log excerpt to commit comments
+        if: failure()
+        working-directory: ios
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          grep -E "error:|fatal|Fatal|failed|Test Suite|Executed [0-9]+ test|crash|Crash" \
+            test-output.txt | tail -100 > excerpt.txt || true
+          {
+            echo "iOS job 失败（run ${{ github.run_id }}）日志节选："
+            echo '```'
+            cat excerpt.txt
+            echo '```'
+          } > comment.md
+          gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
+            -F body=@comment.md
