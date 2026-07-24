@@ -146,10 +146,10 @@ def verify_apple_identity_token(identity_token: str) -> AppleIdentity:
 
 
 __all__ = [
-    "AuthError",
-    "AuthConfigError",
     "AppleIdentity",
-    "issue_access_token",
+    "AuthConfigError",
+    "AuthError",
     "decode_access_token",
+    "issue_access_token",
     "verify_apple_identity_token",
 ]

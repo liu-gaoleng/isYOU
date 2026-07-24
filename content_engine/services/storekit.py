@@ -262,9 +262,9 @@ def _decode_unverified(signed_transaction: str) -> dict:
 
 
 __all__ = [
-    "ReceiptError",
     "BillingConfigError",
+    "ReceiptError",
     "VerifiedTransaction",
-    "verify_signed_transaction",
     "product_to_plan",
+    "verify_signed_transaction",
 ]

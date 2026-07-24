@@ -332,7 +332,7 @@ def eval_cluster(threshold: float | None = None) -> dict:
         events_with_dup = 0
         missed_pairs = 0
         pair_total = 0
-        for module, evs in by_module.items():
+        for evs in by_module.values():
             for i, a in enumerate(evs):
                 considered += 1
                 has_dup = False

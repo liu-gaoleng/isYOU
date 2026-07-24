@@ -59,7 +59,7 @@ class Source(IdMixin, TimestampMixin, Base):
     # 采集频率（分钟），S 级 5~15，A/B 30~60；nil 表示用默认值
     poll_interval_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    articles: Mapped[list["RawArticle"]] = relationship(back_populates="source")
+    articles: Mapped[list[RawArticle]] = relationship(back_populates="source")
 
 
 # ----------------------------------------------------------------------------
@@ -104,7 +104,7 @@ class RawArticle(IdMixin, TimestampMixin, Base):
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     source: Mapped[Source] = relationship(back_populates="articles")
-    event_links: Mapped[list["EventArticle"]] = relationship(back_populates="article")
+    event_links: Mapped[list[EventArticle]] = relationship(back_populates="article")
 
 
 # ----------------------------------------------------------------------------
@@ -146,9 +146,9 @@ class Event(IdMixin, TimestampMixin, Base):
     needs_split: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     suggested_merge_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
-    article_links: Mapped[list["EventArticle"]] = relationship(back_populates="event")
-    contents: Mapped[list["EventContent"]] = relationship(back_populates="event")
-    review_logs: Mapped[list["ReviewLog"]] = relationship(back_populates="event")
+    article_links: Mapped[list[EventArticle]] = relationship(back_populates="event")
+    contents: Mapped[list[EventContent]] = relationship(back_populates="event")
+    review_logs: Mapped[list[ReviewLog]] = relationship(back_populates="event")
 
 
 # ----------------------------------------------------------------------------
@@ -294,13 +294,13 @@ class User(IdMixin, TimestampMixin, Base):
 
 
 __all__ = [
-    "Source",
-    "RawArticle",
+    "EMBEDDING_DIM",
     "Event",
     "EventArticle",
     "EventContent",
+    "RawArticle",
     "ReviewLog",
+    "Source",
     "SourceHealth",
     "User",
-    "EMBEDDING_DIM",
 ]

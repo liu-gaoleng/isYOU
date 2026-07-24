@@ -130,8 +130,8 @@ def client(monkeypatch):
         sess._match = next(iter([u.apple_user_id for u in user_store.values()]), "__none__")
         yield sess
 
-    from content_engine.api.routers import auth as auth_router
     from content_engine.api import deps as deps_mod
+    from content_engine.api.routers import auth as auth_router
 
     monkeypatch.setattr(auth_router, "get_session", fake_get_session)
     monkeypatch.setattr(deps_mod, "get_session", fake_get_session)
@@ -230,8 +230,8 @@ def paywall_client(monkeypatch):
     def fake_event_session():
         yield _EventSession()
 
-    from content_engine.api.routers import brief as brief_mod
     from content_engine.api import deps as deps_mod
+    from content_engine.api.routers import brief as brief_mod
 
     monkeypatch.setattr(brief_mod, "get_session", fake_event_session)
     monkeypatch.setattr(deps_mod, "get_session", fake_user_session)

@@ -140,11 +140,11 @@ def check_event(
 
 
 __all__ = [
-    "GuardResult",
     "DISCLAIMER",
-    "check_structure",
-    "check_numbers",
-    "check_sensitive",
+    "GuardResult",
     "check_disclaimer",
     "check_event",
+    "check_numbers",
+    "check_sensitive",
+    "check_structure",
 ]

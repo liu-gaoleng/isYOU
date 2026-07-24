@@ -43,7 +43,7 @@ def _create_run(trigger: str, started_at: datetime):
             s.add(run)
             s.flush()
             return run.id
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _logger.warning("无法创建 pipeline_runs 记录（管线继续）：%s", exc)
         return None
 
@@ -66,7 +66,7 @@ def _finalize_run(run_id, *, status, stages, llm_cost, started_at, error=None):
             run.stages = stages
             run.llm_cost = round(llm_cost, 6)
             run.error = error
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _logger.warning("无法回填 pipeline_runs 记录：%s", exc)
 
 
@@ -85,7 +85,7 @@ def run_all(trigger: str = "manual") -> dict:
         stage_t0 = time.time()
         try:
             stat = fn() or {}
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             status = "failed"
             error = f"{name}: {type(exc).__name__}: {exc}"
             _logger.exception("[run_all] 阶段 %s 失败，中断管线", name)

@@ -10,6 +10,6 @@
     python -m content_engine.stages.run_all
 """
 
-from . import classify, clean, cluster, collect, score, summarize  # noqa: F401
+from . import classify, clean, cluster, collect, score, summarize
 
-__all__ = ["collect", "clean", "classify", "cluster", "summarize", "score"]
+__all__ = ["classify", "clean", "cluster", "collect", "score", "summarize"]

@@ -22,11 +22,11 @@ _ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from content_engine.models import Base  # noqa: E402  (after sys.path tweak)
-from content_engine.models import billing as _billing  # noqa: E402,F401  确保会员订阅表被注册
-from content_engine.models import observability as _obs  # noqa: E402,F401  确保埋点表被注册
-from content_engine.models import ops as _ops  # noqa: E402,F401  确保运营态表被注册
-from content_engine.models import schema as _schema  # noqa: E402,F401  确保所有表被注册
+from content_engine.models import Base
+from content_engine.models import billing as _billing  # noqa: F401  确保会员订阅表被注册
+from content_engine.models import observability as _obs  # noqa: F401  确保埋点表被注册
+from content_engine.models import ops as _ops  # noqa: F401  确保运营态表被注册
+from content_engine.models import schema as _schema  # noqa: F401  确保所有表被注册
 
 config = context.config
 
@@ -43,9 +43,7 @@ target_metadata = Base.metadata
 
 def _include_object(obj, name, type_, reflected, compare_to):
     """过滤 autogenerate 不应处理的对象（如 pgvector 扩展自带类型）。"""
-    if type_ == "table" and name in {"vector"}:
-        return False
-    return True
+    return not (type_ == "table" and name in {"vector"})
 
 
 def run_migrations_offline() -> None:

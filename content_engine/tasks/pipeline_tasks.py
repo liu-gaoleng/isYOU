@@ -97,14 +97,14 @@ def daily_recluster() -> dict:
 
 
 __all__ = [
-    "collect_stage",
-    "clean_stage",
     "classify_stage",
+    "clean_stage",
     "cluster_stage",
-    "summarize_stage",
-    "score_stage",
-    "publish_stage",
-    "pipeline_chain",
     "collect_and_process",
+    "collect_stage",
     "daily_recluster",
+    "pipeline_chain",
+    "publish_stage",
+    "score_stage",
+    "summarize_stage",
 ]

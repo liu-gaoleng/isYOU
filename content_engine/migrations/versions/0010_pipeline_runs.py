@@ -7,14 +7,13 @@ Create Date: 2026-06-12
 记录每次管线运行的逐阶段耗时/条数/成败与 LLM 成本，作为可观测性报表数据源。
 """
 
-from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "0010_pipeline_runs"
-down_revision: Union[str, None] = "0009_digest_singleton"
+down_revision: str | None = "0009_digest_singleton"
 branch_labels = None
 depends_on = None
 

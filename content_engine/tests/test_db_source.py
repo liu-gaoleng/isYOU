@@ -132,22 +132,22 @@ def test_operational_accessors_return_seed(ds):
 # 事件映射（stub Event/EventContent，不触碰真实 DB）
 # ---------------------------------------------------------------------------
 def _stub_event(**over):
-    base = dict(
-        id=7, module=SimpleNamespace(value="finance"), importance=88.0,
-        source_count=3, hotness=0.42,
-        last_update=datetime(2026, 6, 8, 8, 0, tzinfo=timezone.utc),
-        status=SimpleNamespace(value="published"),
-    )
+    base = {
+        "id": 7, "module": SimpleNamespace(value="finance"), "importance": 88.0,
+        "source_count": 3, "hotness": 0.42,
+        "last_update": datetime(2026, 6, 8, 8, 0, tzinfo=timezone.utc),
+        "status": SimpleNamespace(value="published"),
+    }
     base.update(over)
     return SimpleNamespace(**base)
 
 
 def _stub_content(**over):
-    base = dict(
-        title="美联储维持利率不变", summary=["第一句", "第二句", "第三句"],
-        why_matters="影响全球流动性预期", sources=[{"name": "Reuters"}],
-        deep_content="付费全文……", version=2,
-    )
+    base = {
+        "title": "美联储维持利率不变", "summary": ["第一句", "第二句", "第三句"],
+        "why_matters": "影响全球流动性预期", "sources": [{"name": "Reuters"}],
+        "deep_content": "付费全文……", "version": 2,
+    }
     base.update(over)
     return SimpleNamespace(**base)
 

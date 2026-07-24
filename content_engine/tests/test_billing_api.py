@@ -35,18 +35,18 @@ def _auth_config(monkeypatch):
 
 
 def _vt(**overrides) -> storekit.VerifiedTransaction:
-    base = dict(
-        transaction_id="txn-1",
-        original_transaction_id="orig-1",
-        product_id="com.redu.app.member.monthly",
-        plan=SubscriptionPlan.monthly,
-        environment="Sandbox",
-        purchase_date=datetime.now(timezone.utc),
-        expires_date=datetime.now(timezone.utc) + timedelta(days=30),
-        bundle_id="app.redu.ios",
-        is_revoked=False,
-        raw_payload={"transactionId": "txn-1"},
-    )
+    base = {
+        "transaction_id": "txn-1",
+        "original_transaction_id": "orig-1",
+        "product_id": "com.redu.app.member.monthly",
+        "plan": SubscriptionPlan.monthly,
+        "environment": "Sandbox",
+        "purchase_date": datetime.now(timezone.utc),
+        "expires_date": datetime.now(timezone.utc) + timedelta(days=30),
+        "bundle_id": "app.redu.ios",
+        "is_revoked": False,
+        "raw_payload": {"transactionId": "txn-1"},
+    }
     base.update(overrides)
     return storekit.VerifiedTransaction(**base)
 

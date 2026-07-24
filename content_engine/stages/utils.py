@@ -108,10 +108,10 @@ def extractive_summary(text: str, max_sentences: int = 3) -> list[str]:
 
 __all__ = [
     "clean_text",
-    "tokenize",
-    "jaccard",
     "content_hash",
-    "simhash64",
-    "hamming_distance",
     "extractive_summary",
+    "hamming_distance",
+    "jaccard",
+    "simhash64",
+    "tokenize",
 ]

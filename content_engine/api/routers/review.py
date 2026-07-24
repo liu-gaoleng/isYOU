@@ -19,8 +19,6 @@ token 未配置（空）时所有请求 401，避免误开放（铁律：脏内�
 
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import desc, or_, select
 
@@ -101,7 +99,7 @@ def _write_log(
 
 @router.get("/review/queue", response_model=list[ReviewItem], dependencies=[Depends(require_admin)])
 def review_queue(
-    module: Optional[str] = Query(default=None, description="可选按模块过滤"),
+    module: str | None = Query(default=None, description="可选按模块过滤"),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> list[ReviewItem]:
     """待审队列：reviewing 状态 + HDBSCAN 复核打标（needs_split / suggested_merge_id）。"""

@@ -182,6 +182,6 @@ __all__ = [
     "EmbeddingProvider",
     "LocalBgeProvider",
     "RemoteOpenAIProvider",
-    "get_embedding_provider",
     "embed_texts",
+    "get_embedding_provider",
 ]

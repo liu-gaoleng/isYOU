@@ -47,7 +47,9 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
-    "ruff>=0.4.0",
+    # 锁 minor 版本：ruff 会在新版本中扩大默认规则集（0.12→0.16 曾让全仓库
+    # 一夜多出 143 条报错），不锁会让 CI 因工具升级而非代码变更变红。
+    "ruff>=0.16.0,<0.17.0",
 ]
 
 # 关键：从仓库根目录寻找 content_engine 这个 package
@@ -64,3 +66,12 @@ pythonpath = ["."]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI 惯用法：Depends 注入必须写在参数默认值里
+"content_engine/api/**" = ["B008"]
+# 流水线降级惯用法：盲捕获后记日志并降级，不让单条数据 / 外部依赖挂掉整轮
+"content_engine/stages/**" = ["BLE001"]
+"content_engine/services/ranking.py" = ["BLE001"]
+# API 读路径容错：单条关联数据坏不拖垮整个详情响应
+"content_engine/api/routers/brief.py" = ["BLE001", "S112"]

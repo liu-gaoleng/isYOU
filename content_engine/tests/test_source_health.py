@@ -19,7 +19,7 @@ from content_engine.models.enums import Module, SourceLevel
 @pytest.fixture
 def session():
     """SQLite in-memory：仅建 sources / source_health 两张表，避开 pgvector 依赖。"""
-    from content_engine.models.schema import Source, SourceHealth  # noqa: F401
+    from content_engine.models.schema import Source, SourceHealth
 
     engine = create_engine("sqlite://", future=True)
     # 只建非 pgvector 表（其它表含 Vector 列在 SQLite 上不能 create_all）
@@ -67,8 +67,9 @@ def _record(s, source_id, status, *, fetched_at=None, consecutive=0):
 # ---------------------------------------------------------------------------
 def test_consecutive_failures_accumulate_then_reset(session):
     """失败累加，成功归零；正是 collect.run() 决定是否告警的依据。"""
-    from content_engine.models import SourceHealth
     from sqlalchemy import desc, select
+
+    from content_engine.models import SourceHealth
 
     src = _make_source(session)
 
@@ -97,8 +98,9 @@ def test_consecutive_failures_accumulate_then_reset(session):
 
 def test_partial_status_resets_failures(session):
     """partial（解析成功但 0 新增）也视为可用，应归零失败计数。"""
-    from content_engine.models import SourceHealth
     from sqlalchemy import desc, select
+
+    from content_engine.models import SourceHealth
 
     src = _make_source(session)
     _record(session, src.id, "failed", consecutive=2)

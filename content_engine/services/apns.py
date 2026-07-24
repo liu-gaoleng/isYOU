@@ -27,7 +27,10 @@ import json
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from typing import Self
 
 import httpx
 import jwt
@@ -136,7 +139,7 @@ class ApnsClient:
         apns: ApnsSettings | None = None,
         *,
         client: httpx.Client | None = None,
-    ) -> "ApnsClient":
+    ) -> ApnsClient:
         """从全局 :class:`ApnsSettings` 装配（凭证缺失 → ApnsConfigError）。"""
         apns = apns or settings.apns
         if not apns.configured:
@@ -161,7 +164,7 @@ class ApnsClient:
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> "ApnsClient":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *_: object) -> None:
@@ -253,7 +256,7 @@ class ApnsClientPool:
         self._clients: dict[str, ApnsClient] = {}
 
     @classmethod
-    def from_settings(cls, apns: ApnsSettings | None = None) -> "ApnsClientPool":
+    def from_settings(cls, apns: ApnsSettings | None = None) -> ApnsClientPool:
         """从全局 :class:`ApnsSettings` 装配（凭证缺失 → ApnsConfigError）。"""
         return cls(apns or settings.apns)
 
@@ -283,7 +286,7 @@ class ApnsClientPool:
             client.close()
         self._clients.clear()
 
-    def __enter__(self) -> "ApnsClientPool":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *_: object) -> None:
@@ -312,10 +315,10 @@ def _interpret_response(resp: httpx.Response, *, fallback_apns_id: str) -> ApnsR
 
 __all__ = [
     "APNS_ENVIRONMENTS",
+    "ApnsBadTokenError",
     "ApnsClient",
     "ApnsClientPool",
     "ApnsConfigError",
-    "ApnsBadTokenError",
     "ApnsError",
     "ApnsResult",
     "build_payload",

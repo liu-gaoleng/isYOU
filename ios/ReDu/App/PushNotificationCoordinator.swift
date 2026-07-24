@@ -50,7 +50,8 @@ final class PushNotificationCoordinator {
 
     /// 当前构建对应的 APNs 环境（与 entitlements aps-environment 对齐）。
     /// AppDelegate 注册回调与登录后补报统一走这里，避免两处 #if DEBUG 漂移。
-    static var currentAPNSEnvironment: String {
+    /// nonisolated：纯编译期常量、无 actor 状态，且被默认参数（调用侧非隔离上下文）引用。
+    nonisolated static var currentAPNSEnvironment: String {
         #if DEBUG
         return "sandbox"
         #else

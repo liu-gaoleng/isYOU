@@ -60,4 +60,4 @@ def get_current_user(user: User | None = Depends(get_optional_user)) -> User:
     return user
 
 
-__all__ = ["is_member", "get_optional_user", "get_current_user"]
+__all__ = ["get_current_user", "get_optional_user", "is_member"]

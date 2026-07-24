@@ -60,7 +60,7 @@ class AppUser(IdMixin, TimestampMixin, Base):
     member_expire: Mapped[str] = mapped_column(String(16), nullable=False, default="")
     total_paid: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    orders: Mapped[list["AppOrder"]] = relationship(
+    orders: Mapped[list[AppOrder]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -321,16 +321,16 @@ class AnalyticsEvent(IdMixin, TimestampMixin, Base):
 
 
 __all__ = [
-    "AppUser",
+    "AdminMember",
+    "AnalyticsEvent",
     "AppOrder",
+    "AppUser",
+    "DeviceToken",
+    "DigestConfig",
+    "Favorite",
+    "PushRecord",
+    "PushSetting",
+    "ReadingHistory",
     "Report",
     "ReportPurchase",
-    "PushRecord",
-    "DigestConfig",
-    "AdminMember",
-    "Favorite",
-    "ReadingHistory",
-    "PushSetting",
-    "DeviceToken",
-    "AnalyticsEvent",
 ]

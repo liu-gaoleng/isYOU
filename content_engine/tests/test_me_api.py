@@ -187,7 +187,7 @@ def test_history_recent_first(client):
     client.post("/api/v1/me/history/102", headers=client.auth_headers)
     items = client.get("/api/v1/me/history", headers=client.auth_headers).json()
     # 最近浏览（102）在前
-    assert [i["id"] for i in items][0] == 102
+    assert next(i["id"] for i in items) == 102
 
 
 def test_clear_history(client):

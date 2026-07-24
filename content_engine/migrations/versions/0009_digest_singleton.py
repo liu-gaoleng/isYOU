@@ -8,14 +8,13 @@ Create Date: 2026-06-12
 从 DB 层强制该配置表至多一行，防止并发或误插出现多行。
 """
 
-from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "0009_digest_singleton"
-down_revision: Union[str, None] = "0008_ops_tables"
+down_revision: str | None = "0008_ops_tables"
 branch_labels = None
 depends_on = None
 

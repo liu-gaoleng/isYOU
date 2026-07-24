@@ -140,7 +140,7 @@ def test_revoked_transaction_flagged(chain):
 # ---------------------------------------------------------------------------
 def test_reject_when_root_not_trusted(chain, tmp_path, monkeypatch):
     """x5c 末端 root 与可信根不一致 → 拒绝（核心防伪造）。"""
-    other_root, other_key = _mk_cert("Evil Root", None, None, is_ca=True)
+    other_root, _other_key = _mk_cert("Evil Root", None, None, is_ca=True)
     other_pem = tmp_path / "evil.pem"
     other_pem.write_bytes(other_root.public_bytes(serialization.Encoding.PEM))
     monkeypatch.setattr(settings.billing, "apple_root_ca_path", str(other_pem))

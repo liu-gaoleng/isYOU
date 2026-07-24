@@ -9,14 +9,13 @@ Create Date: 2026-06-14
 - member_expire_at：会员到期时间（为空或已过期即非会员）
 """
 
-from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "0011_user_member_fields"
-down_revision: Union[str, None] = "0010_pipeline_runs"
+down_revision: str | None = "0010_pipeline_runs"
 branch_labels = None
 depends_on = None
 

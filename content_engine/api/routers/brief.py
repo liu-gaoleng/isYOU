@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 import json
 from datetime import date, datetime, time, timezone
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, select
@@ -104,9 +103,9 @@ def _to_detail(ev: Event, member: bool = False) -> EventDetail:
 
 @router.get("/daily-brief", response_model=list[EventCard])
 def daily_brief(
-    date_str: Optional[str] = Query(default=None, alias="date", description="YYYY-MM-DD，默认今天"),
+    date_str: str | None = Query(default=None, alias="date", description="YYYY-MM-DD，默认今天"),
     limit: int = Query(default=20, ge=1, le=100),
-    module: Optional[str] = Query(default=None, description="可选按模块过滤"),
+    module: str | None = Query(default=None, description="可选按模块过滤"),
 ) -> list[EventCard]:
     """当日简报：按 importance 倒序返回当日有更新的事件卡片。"""
     target_date = _parse_date(date_str)
@@ -145,9 +144,9 @@ def event_detail(
 
 @router.get("/feed", response_model=FeedPage)
 def feed(
-    cursor: Optional[str] = Query(default=None, description="上一页返回的 next_cursor"),
+    cursor: str | None = Query(default=None, description="上一页返回的 next_cursor"),
     limit: int = Query(default=20, ge=1, le=50),
-    module: Optional[str] = Query(default=None),
+    module: str | None = Query(default=None),
 ) -> FeedPage:
     """信息流分页：按 last_update 倒序，使用 (last_update, id) 复合 cursor。"""
     stmt = (
@@ -180,9 +179,9 @@ def feed(
 @router.get("/search", response_model=FeedPage)
 def search(
     q: str = Query(..., min_length=1, max_length=64, description="关键词"),
-    cursor: Optional[str] = Query(default=None, description="上一页返回的 next_cursor"),
+    cursor: str | None = Query(default=None, description="上一页返回的 next_cursor"),
     limit: int = Query(default=20, ge=1, le=50),
-    module: Optional[str] = Query(default=None, description="可选按模块过滤"),
+    module: str | None = Query(default=None, description="可选按模块过滤"),
 ) -> FeedPage:
     """关键词搜索：匹配事件 card_summary / detail_summary 或最新内容标题。
 
@@ -237,7 +236,7 @@ def search(
 
 @router.get("/ranking", response_model=list[EventCard])
 def ranking_top(
-    module: Optional[str] = Query(default=None, description="可选按模块过滤"),
+    module: str | None = Query(default=None, description="可选按模块过滤"),
     limit: int = Query(default=10, ge=1, le=50),
 ) -> list[EventCard]:
     """热度榜单 TOP-N：优先读 Redis ZSet（O(logN)），Redis 不可用回退 DB importance 排序。"""
@@ -268,7 +267,7 @@ def ranking_top(
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
-def _parse_date(date_str: Optional[str]) -> date:
+def _parse_date(date_str: str | None) -> date:
     if not date_str:
         return datetime.now(timezone.utc).date()
     try:
