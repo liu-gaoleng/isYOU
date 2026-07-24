@@ -238,19 +238,23 @@ struct HistoryCard: Codable, Identifiable, Hashable {
     }
 }
 
-/// 推送设置，对齐 schemas.PushSettings。
+/// 推送设置，对齐 schemas.PushSettings。pushTime 语义为 tz 时区下的本地时间。
 struct PushSettings: Codable, Equatable {
     var dailyPush: Bool
     var pushTime: String
     var breakingPush: Bool
+    var tz: String
 
     enum CodingKeys: String, CodingKey {
         case dailyPush = "daily_push"
         case pushTime = "push_time"
         case breakingPush = "breaking_push"
+        case tz
     }
 
-    static let `default` = PushSettings(dailyPush: true, pushTime: "08:00", breakingPush: false)
+    static let `default` = PushSettings(
+        dailyPush: true, pushTime: "08:00", breakingPush: false, tz: "Asia/Shanghai"
+    )
 }
 
 // MARK: - 设备 token 注册（对齐 schemas 阶段 4.2）

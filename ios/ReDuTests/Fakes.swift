@@ -81,7 +81,7 @@ final class FakeAuthRepository: AuthRepositoryProtocol {
     func listHistory() async throws -> [HistoryCard] { [] }
     func clearHistory() async throws {}
     func getSettings() async throws -> PushSettings { .default }
-    func updateSettings(dailyPush: Bool?, pushTime: String?, breakingPush: Bool?) async throws -> PushSettings { .default }
+    func updateSettings(dailyPush: Bool?, pushTime: String?, breakingPush: Bool?, tz: String?) async throws -> PushSettings { .default }
 }
 
 /// 可编排的假 Billing 仓库。

@@ -64,6 +64,8 @@ final class ProfileViewModel: ObservableObject {
     }
 
     /// 更新推送设置：乐观更新 + 失败回滚。
+    /// 每次更新都附带当前设备时区（IANA），服务端按该时区的本地时间派发早报；
+    /// 用户跨时区旅行后，下一次改动设置即自动校正。
     func updateSettings(dailyPush: Bool? = nil, pushTime: String? = nil, breakingPush: Bool? = nil) async {
         let previous = settings
         if let dailyPush { settings.dailyPush = dailyPush }
@@ -74,7 +76,8 @@ final class ProfileViewModel: ObservableObject {
         defer { savingSettings = false }
         do {
             settings = try await repo.updateSettings(
-                dailyPush: dailyPush, pushTime: pushTime, breakingPush: breakingPush
+                dailyPush: dailyPush, pushTime: pushTime, breakingPush: breakingPush,
+                tz: TimeZone.current.identifier
             )
         } catch {
             settings = previous

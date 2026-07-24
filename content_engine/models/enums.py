@@ -45,6 +45,12 @@ class EventStatus(str, enum.Enum):
     rejected = "rejected"
 
 
+# C 端对外可见的事件状态：仅「已过护栏并发布」的事件可暴露给
+# feed / 详情 / 收藏 / 热榜 / 推送。护栏在 publish 阶段执行，summarized/scored
+# 属生产中间态——若对外可见，publish 失败或中断时未检内容会绕过护栏裸奔。
+PUBLIC_EVENT_STATUSES: tuple[EventStatus, ...] = (EventStatus.published,)
+
+
 class SourceLevel(str, enum.Enum):
     """信源分级（沿用 PRD §2.2 / 方案 §2.1）。"""
 

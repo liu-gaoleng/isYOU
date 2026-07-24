@@ -19,7 +19,9 @@ from content_engine.models.enums import Module
 from content_engine.services.llm_client import estimate_cost
 
 TOKEN = "test-admin-token"
-NOW = datetime(2026, 6, 12, 12, 0, 0, tzinfo=timezone.utc)
+# 端点按真实时钟计算 since 窗口（now - days），夹具时间必须相对真实 now，
+# 不能用固定日期（越过窗口后测试变时间炸弹）
+NOW = datetime.now(timezone.utc)
 
 
 # ---------------------------------------------------------------------------

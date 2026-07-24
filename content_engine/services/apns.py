@@ -213,7 +213,12 @@ class ApnsClient:
         url = f"https://{self._host}/3/device/{token}"
         body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
-        resp = self._client.post(url, content=body, headers=headers)
+        try:
+            resp = self._client.post(url, content=body, headers=headers)
+        except httpx.HTTPError as e:
+            # 传输层错误（超时/连接失败）统一包装成 ApnsError，调用方只需捕获
+            # ApnsError 一族即可做到"单 token 失败不影响整批派发"。
+            raise ApnsError(0, "transport_error", f"APNs 传输层错误: {e}") from e
         return _interpret_response(resp, fallback_apns_id=apns_id)
 
 
@@ -221,6 +226,68 @@ def _read_private_key(path: str) -> str:
     with open(path, encoding="utf-8") as f:
         return f.read()
 
+
+# APNs 合法环境值（与 device_tokens.environment 对齐）
+APNS_ENVIRONMENTS = ("sandbox", "production")
+
+
+class ApnsClientPool:
+    """按 environment 懒构造并复用 :class:`ApnsClient` 的连接池。
+
+    为什么需要池：同一份 .p8 token key 对 sandbox / production 通用，两个环境
+    仅主机名不同；dispatcher 必须按 ``device_tokens.environment`` 逐 token 分流，
+    否则生产后端会把 sandbox token 误发生产主机 → BadDeviceToken → 有效 token
+    被误软删（TestFlight 与生产设备共存时推送全挂且恶性循环）。
+    """
+
+    def __init__(self, apns: ApnsSettings) -> None:
+        if not apns.configured:
+            raise ApnsConfigError(
+                "APNs 凭据未配置：需同时设置 team_id / key_id / bundle_id / private_key_path"
+            )
+        try:
+            self._private_key = _read_private_key(apns.private_key_path)
+        except OSError as e:
+            raise ApnsConfigError(f"无法读取 APNs .p8 私钥：{e}") from e
+        self._apns = apns
+        self._clients: dict[str, ApnsClient] = {}
+
+    @classmethod
+    def from_settings(cls, apns: ApnsSettings | None = None) -> "ApnsClientPool":
+        """从全局 :class:`ApnsSettings` 装配（凭证缺失 → ApnsConfigError）。"""
+        return cls(apns or settings.apns)
+
+    def client_for(self, environment: str | None) -> ApnsClient:
+        """取指定环境的 client；非法/未知 environment 回落到配置默认环境。"""
+        env = (
+            environment
+            if environment in APNS_ENVIRONMENTS
+            else self._apns.environment
+        )
+        client = self._clients.get(env)
+        if client is None:
+            client = ApnsClient(
+                team_id=self._apns.team_id,
+                key_id=self._apns.key_id,
+                bundle_id=self._apns.bundle_id,
+                private_key=self._private_key,
+                host=self._apns.host_for(env),
+                jwt_ttl_seconds=self._apns.jwt_ttl_seconds,
+                request_timeout=self._apns.request_timeout,
+            )
+            self._clients[env] = client
+        return client
+
+    def close(self) -> None:
+        for client in self._clients.values():
+            client.close()
+        self._clients.clear()
+
+    def __enter__(self) -> "ApnsClientPool":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
 
 def _interpret_response(resp: httpx.Response, *, fallback_apns_id: str) -> ApnsResult:
     """把 APNs HTTP/2 响应翻译成 :class:`ApnsResult` 或抛 ApnsError 子类。"""
@@ -244,7 +311,9 @@ def _interpret_response(resp: httpx.Response, *, fallback_apns_id: str) -> ApnsR
 
 
 __all__ = [
+    "APNS_ENVIRONMENTS",
     "ApnsClient",
+    "ApnsClientPool",
     "ApnsConfigError",
     "ApnsBadTokenError",
     "ApnsError",

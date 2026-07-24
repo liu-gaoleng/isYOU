@@ -259,7 +259,9 @@ def test_paywall_locked_for_anonymous(paywall_client):
 def test_paywall_unlocked_for_member(paywall_client):
     user = paywall_client._user_store[1]
     user.member_tier = "member"
-    user.member_expire_at = NOW + timedelta(days=30)
+    # 相对真实时钟（is_member 按 datetime.now 判定），不能用固定的 NOW 常量，
+    # 否则越过该日期后测试变时间炸弹
+    user.member_expire_at = datetime.now(timezone.utc) + timedelta(days=30)
     token, _ = auth_service.issue_access_token(1)
 
     r = paywall_client.get(

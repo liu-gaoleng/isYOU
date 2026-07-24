@@ -21,9 +21,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, desc, select
 
 from content_engine.models import (
+    DEFAULT_PUSH_TZ,
+    PUBLIC_EVENT_STATUSES,
     DeviceToken,
     Event,
-    EventStatus,
     Favorite,
     PushSetting,
     ReadingHistory,
@@ -48,12 +49,8 @@ from .brief import _to_card
 
 router = APIRouter(prefix="/me", tags=["me"])
 
-# 与 brief 一致：仅已生成可读内容的事件可被收藏/展示
-_VISIBLE_STATUSES = (
-    EventStatus.summarized,
-    EventStatus.scored,
-    EventStatus.published,
-)
+# 与 brief 一致：仅已发布（过护栏）的事件可被收藏/展示
+_VISIBLE_STATUSES = PUBLIC_EVENT_STATUSES
 
 # 阅读历史最多保留条数（与 mock 对齐）
 _HISTORY_LIMIT = 50
@@ -222,6 +219,7 @@ def get_settings(user: User = Depends(get_current_user)) -> PushSettings:
             daily_push=row.daily_push,
             push_time=row.push_time,
             breaking_push=row.breaking_push,
+            tz=row.tz or DEFAULT_PUSH_TZ,
         )
 
 
@@ -243,11 +241,14 @@ def update_settings(
             row.push_time = payload.push_time
         if payload.breaking_push is not None:
             row.breaking_push = payload.breaking_push
+        if payload.tz is not None:
+            row.tz = payload.tz
         s.flush()
         return PushSettings(
             daily_push=row.daily_push,
             push_time=row.push_time,
             breaking_push=row.breaking_push,
+            tz=row.tz or DEFAULT_PUSH_TZ,
         )
 
 

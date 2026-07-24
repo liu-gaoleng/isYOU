@@ -14,6 +14,14 @@ import XCTest
 @MainActor
 final class PushNotificationTests: XCTestCase {
 
+    /// 每个用例独立的 UserDefaults（token 持久化的隔离面，防跨用例污染）。
+    private func makeDefaults() -> UserDefaults {
+        let name = "push-tests-\(UUID().uuidString)"
+        let d = UserDefaults(suiteName: name)!
+        d.removePersistentDomain(forName: name)
+        return d
+    }
+
     // MARK: - hex 转换
 
     func test_hexString_lowercaseFullWidth() {
@@ -29,7 +37,7 @@ final class PushNotificationTests: XCTestCase {
 
     func test_handleRegistration_uploadsHexTokenAndCachesIt() async {
         let fake = FakeDeviceRepository()
-        let coordinator = PushNotificationCoordinator(repository: fake)
+        let coordinator = PushNotificationCoordinator(repository: fake, defaults: makeDefaults())
         let data = Data([0xde, 0xad, 0xbe, 0xef])
 
         await coordinator.handleRegistration(deviceToken: data, environment: "sandbox")
@@ -43,7 +51,7 @@ final class PushNotificationTests: XCTestCase {
     func test_handleRegistration_swallowsErrorButStillCachesToken() async {
         let fake = FakeDeviceRepository()
         fake.registerError = APIError.invalidResponse
-        let coordinator = PushNotificationCoordinator(repository: fake)
+        let coordinator = PushNotificationCoordinator(repository: fake, defaults: makeDefaults())
 
         await coordinator.handleRegistration(deviceToken: Data([0x01, 0x02]), environment: "production")
 
@@ -52,11 +60,23 @@ final class PushNotificationTests: XCTestCase {
         XCTAssertEqual(fake.registerCalls.count, 1)
     }
 
+    // MARK: - token 持久化（冒烟修复 #6）
+
+    func test_tokenPersistedAcrossInstances() async {
+        // 模拟冷启动：新实例（同一 defaults）应读到之前注册的 token
+        let defaults = makeDefaults()
+        let first = PushNotificationCoordinator(repository: FakeDeviceRepository(), defaults: defaults)
+        await first.handleRegistration(deviceToken: Data([0xca, 0xfe]), environment: "sandbox")
+
+        let second = PushNotificationCoordinator(repository: FakeDeviceRepository(), defaults: defaults)
+        XCTAssertEqual(second.lastRegisteredToken, "cafe")
+    }
+
     // MARK: - unregisterCurrentDevice
 
     func test_unregister_callsRepositoryAndClearsCache() async {
         let fake = FakeDeviceRepository()
-        let coordinator = PushNotificationCoordinator(repository: fake)
+        let coordinator = PushNotificationCoordinator(repository: fake, defaults: makeDefaults())
         await coordinator.handleRegistration(deviceToken: Data([0xaa, 0xbb]), environment: "sandbox")
 
         await coordinator.unregisterCurrentDevice()
@@ -65,13 +85,58 @@ final class PushNotificationTests: XCTestCase {
         XCTAssertNil(coordinator.lastRegisteredToken)
     }
 
+    func test_unregister_afterColdStart_usesPersistedToken() async {
+        // 冷启动后直接登出：内存为空但持久化 token 在，仍应正确解绑
+        let defaults = makeDefaults()
+        let first = PushNotificationCoordinator(repository: FakeDeviceRepository(), defaults: defaults)
+        await first.handleRegistration(deviceToken: Data([0xbe, 0xef]), environment: "production")
+
+        let fake2 = FakeDeviceRepository()
+        let second = PushNotificationCoordinator(repository: fake2, defaults: defaults)
+        await second.unregisterCurrentDevice()
+
+        XCTAssertEqual(fake2.unregisterCalls, ["beef"])
+        XCTAssertNil(second.lastRegisteredToken)
+    }
+
     func test_unregister_noopWhenNoToken() async {
         let fake = FakeDeviceRepository()
-        let coordinator = PushNotificationCoordinator(repository: fake)
+        let coordinator = PushNotificationCoordinator(repository: fake, defaults: makeDefaults())
 
         await coordinator.unregisterCurrentDevice()
 
         XCTAssertTrue(fake.unregisterCalls.isEmpty)
+    }
+
+    // MARK: - syncRegistrationAfterLogin（登录后补报换绑）
+
+    func test_syncAfterLogin_rereportsCachedToken() async {
+        let fake = FakeDeviceRepository()
+        let coordinator = PushNotificationCoordinator(repository: fake, defaults: makeDefaults())
+        // 未登录首启：token 已注册但上报失败（401）
+        fake.registerError = APIError.unauthorized
+        await coordinator.handleRegistration(deviceToken: Data([0x01, 0x02]), environment: "sandbox")
+        XCTAssertEqual(fake.registerCalls.count, 1)
+
+        // 登录成功 → 补报（后端 upsert 换绑到当前账号）
+        fake.registerError = nil
+        await coordinator.syncRegistrationAfterLogin(environment: "sandbox")
+
+        XCTAssertEqual(fake.registerCalls.count, 2)
+        XCTAssertEqual(fake.registerCalls.last?.token, "0102")
+        XCTAssertEqual(fake.registerCalls.last?.environment, "sandbox")
+    }
+
+    func test_syncAfterLogin_failureDoesNotClearToken() async {
+        let fake = FakeDeviceRepository()
+        fake.registerError = APIError.invalidResponse
+        let coordinator = PushNotificationCoordinator(repository: fake, defaults: makeDefaults())
+        await coordinator.handleRegistration(deviceToken: Data([0x03, 0x04]), environment: "production")
+
+        await coordinator.syncRegistrationAfterLogin(environment: "production")
+
+        // 补报失败保留 token，登出解绑 / 下次登录仍可用
+        XCTAssertEqual(coordinator.lastRegisteredToken, "0304")
     }
 
     // MARK: - AppDelegate.parseRoute（仅 iOS 平台）

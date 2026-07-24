@@ -135,7 +135,7 @@ class PushRecord(IdMixin, TimestampMixin, Base):
         Index("ix_push_records_pushed_at", "pushed_at"),
     )
 
-    biz_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    biz_id: Mapped[str] = mapped_column(String(64), nullable=False)
     # 关联事件（每日早报为空），存事件业务 id 文本（evt_ / int 皆可）
     event_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # manual / daily
@@ -227,6 +227,11 @@ class ReadingHistory(IdMixin, TimestampMixin, Base):
     viewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+# push_settings.tz 为空时的兜底时区：存量行由 iOS 本地时间写入（目标用户主要
+# 在国内），dispatcher 与 API 响应统一用此常量，避免散落魔法字符串。
+DEFAULT_PUSH_TZ = "Asia/Shanghai"
+
+
 class PushSetting(IdMixin, TimestampMixin, Base):
     """C 端推送设置（每个登录用户一行，阶段 3.4）。"""
 
@@ -238,8 +243,10 @@ class PushSetting(IdMixin, TimestampMixin, Base):
     user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     # 每日早报推送
     daily_push: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    # 推送时间（HH:MM）
+    # 推送时间（HH:MM），语义为「tz 时区下的用户本地时间」
     push_time: Mapped[str] = mapped_column(String(8), nullable=False, default="08:00")
+    # 用户 IANA 时区（如 Asia/Shanghai），由客户端上报；NULL 按 DEFAULT_PUSH_TZ 兜底
+    tz: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # 突发要闻推送
     breaking_push: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 

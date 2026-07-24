@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class EventCard(BaseModel):
@@ -134,12 +135,40 @@ class HistoryClearResult(BaseModel):
     cleared: bool
 
 
+def _validate_hhmm(v: str | None) -> str | None:
+    """HH:MM 格式校验：非法值会让 dispatcher 永不命中且无任何报错，须在入口拦截。"""
+    if v is None:
+        return v
+    try:
+        hh, mm = int(v[:2]), int(v[3:5])
+    except ValueError:
+        raise ValueError("push_time 必须是 HH:MM 格式") from None
+    if len(v) != 5 or v[2] != ":" or not (0 <= hh <= 23 and 0 <= mm <= 59):
+        raise ValueError("push_time 必须是 HH:MM 格式（00:00–23:59）")
+    return v
+
+
+def _validate_iana_tz(v: str | None) -> str | None:
+    """IANA 时区名校验（如 Asia/Shanghai）；非法值拒绝入库。"""
+    if v is None:
+        return v
+    try:
+        ZoneInfo(v)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise ValueError(f"非法 IANA 时区: {v}") from None
+    return v
+
+
 class PushSettings(BaseModel):
-    """推送设置（读 / 写共用）。"""
+    """推送设置（读 / 写共用）。push_time 语义为 tz 时区下的本地时间。"""
 
     daily_push: bool = True
     push_time: str = "08:00"
     breaking_push: bool = False
+    tz: str = "Asia/Shanghai"
+
+    _check_time = field_validator("push_time")(_validate_hhmm)
+    _check_tz = field_validator("tz")(_validate_iana_tz)
 
 
 class PushSettingsUpdate(BaseModel):
@@ -148,6 +177,10 @@ class PushSettingsUpdate(BaseModel):
     daily_push: bool | None = None
     push_time: str | None = None
     breaking_push: bool | None = None
+    tz: str | None = None
+
+    _check_time = field_validator("push_time")(_validate_hhmm)
+    _check_tz = field_validator("tz")(_validate_iana_tz)
 
 
 # ---------------------------------------------------------------------------

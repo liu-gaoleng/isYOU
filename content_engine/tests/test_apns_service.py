@@ -188,3 +188,85 @@ def test_from_settings_raises_when_unconfigured(monkeypatch):
     monkeypatch.setattr(settings.apns, "private_key_path", "")
     with pytest.raises(ApnsConfigError):
         ApnsClient.from_settings()
+
+
+# ---------------------------------------------------------------------------
+# 传输层异常包装（冒烟修复 #5：单 token 网络抖动不得炸掉整轮派发）
+# ---------------------------------------------------------------------------
+def test_transport_error_wrapped_as_apns_error(private_key_pem):
+    def handler(request):
+        raise httpx.ConnectError("boom")
+
+    client = _make_client(private_key_pem, handler)
+    with pytest.raises(ApnsError) as exc:
+        client.send(token=TOKEN, payload=build_payload(title="t", body="b"))
+    assert exc.value.status_code == 0
+    assert exc.value.reason == "transport_error"
+    assert not isinstance(exc.value, ApnsBadTokenError)  # 不得误软删 token
+
+
+def test_timeout_wrapped_as_apns_error(private_key_pem):
+    def handler(request):
+        raise httpx.ReadTimeout("slow")
+
+    client = _make_client(private_key_pem, handler)
+    with pytest.raises(ApnsError) as exc:
+        client.send(token=TOKEN, payload=build_payload(title="t", body="b"))
+    assert exc.value.reason == "transport_error"
+
+
+# ---------------------------------------------------------------------------
+# ApnsClientPool：按 environment 分流（冒烟修复 #4）
+# ---------------------------------------------------------------------------
+@pytest.fixture
+def configured_apns_settings(monkeypatch, tmp_path, private_key_pem):
+    """把全局 settings.apns 配齐（私钥写临时文件），返回 settings.apns。"""
+    from content_engine.config import settings
+
+    key_file = tmp_path / "AuthKey_TEST.p8"
+    key_file.write_text(private_key_pem, encoding="utf-8")
+    monkeypatch.setattr(settings.apns, "team_id", TEAM_ID)
+    monkeypatch.setattr(settings.apns, "key_id", KEY_ID)
+    monkeypatch.setattr(settings.apns, "bundle_id", BUNDLE_ID)
+    monkeypatch.setattr(settings.apns, "private_key_path", str(key_file))
+    monkeypatch.setattr(settings.apns, "environment", "production")
+    return settings.apns
+
+
+def test_pool_routes_by_environment(configured_apns_settings):
+    from content_engine.services.apns import ApnsClientPool
+
+    pool = ApnsClientPool.from_settings()
+    try:
+        sandbox = pool.client_for("sandbox")
+        prod = pool.client_for("production")
+        assert sandbox._host == "api.sandbox.push.apple.com"
+        assert prod._host == "api.push.apple.com"
+        # 同环境复用同一实例（连接池语义）
+        assert pool.client_for("sandbox") is sandbox
+    finally:
+        pool.close()
+
+
+def test_pool_unknown_environment_falls_back_to_default(configured_apns_settings):
+    from content_engine.services.apns import ApnsClientPool
+
+    pool = ApnsClientPool.from_settings()
+    try:
+        # 非法/缺失 environment → 回落到配置默认（production）
+        assert pool.client_for("weird")._host == "api.push.apple.com"
+        assert pool.client_for(None)._host == "api.push.apple.com"
+    finally:
+        pool.close()
+
+
+def test_pool_raises_when_unconfigured(monkeypatch):
+    from content_engine.config import settings
+    from content_engine.services.apns import ApnsClientPool
+
+    monkeypatch.setattr(settings.apns, "team_id", "")
+    monkeypatch.setattr(settings.apns, "key_id", "")
+    monkeypatch.setattr(settings.apns, "bundle_id", "")
+    monkeypatch.setattr(settings.apns, "private_key_path", "")
+    with pytest.raises(ApnsConfigError):
+        ApnsClientPool.from_settings()

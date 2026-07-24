@@ -353,9 +353,13 @@ class ApnsSettings(BaseSettings):
 
     @property
     def host(self) -> str:
+        return self.host_for(self.environment)
+
+    def host_for(self, environment: str) -> str:
+        """按目标环境取 APNs 主机（同一 .p8 凭据两环境通用，仅主机名不同）。"""
         return (
             "api.push.apple.com"
-            if self.environment == "production"
+            if environment == "production"
             else "api.sandbox.push.apple.com"
         )
 

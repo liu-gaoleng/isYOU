@@ -38,11 +38,13 @@ private struct PushSettingsUpdateBody: Encodable {
     let dailyPush: Bool?
     let pushTime: String?
     let breakingPush: Bool?
+    let tz: String?
 
     enum CodingKeys: String, CodingKey {
         case dailyPush = "daily_push"
         case pushTime = "push_time"
         case breakingPush = "breaking_push"
+        case tz
     }
 }
 
@@ -64,7 +66,7 @@ protocol AuthRepositoryProtocol {
 
     // 设置
     func getSettings() async throws -> PushSettings
-    func updateSettings(dailyPush: Bool?, pushTime: String?, breakingPush: Bool?) async throws -> PushSettings
+    func updateSettings(dailyPush: Bool?, pushTime: String?, breakingPush: Bool?, tz: String?) async throws -> PushSettings
 }
 
 final class AuthRepository: AuthRepositoryProtocol {
@@ -130,9 +132,9 @@ final class AuthRepository: AuthRepositoryProtocol {
         try await client.send(.getSettings, as: PushSettings.self)
     }
 
-    func updateSettings(dailyPush: Bool?, pushTime: String?, breakingPush: Bool?) async throws -> PushSettings {
+    func updateSettings(dailyPush: Bool?, pushTime: String?, breakingPush: Bool?, tz: String?) async throws -> PushSettings {
         let body = try encoder.encode(
-            PushSettingsUpdateBody(dailyPush: dailyPush, pushTime: pushTime, breakingPush: breakingPush)
+            PushSettingsUpdateBody(dailyPush: dailyPush, pushTime: pushTime, breakingPush: breakingPush, tz: tz)
         )
         return try await client.send(.updateSettings(body: body), as: PushSettings.self)
     }

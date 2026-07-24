@@ -204,7 +204,12 @@ def test_clear_history(client):
 def test_settings_default_when_unset(client):
     r = client.get("/api/v1/me/settings", headers=client.auth_headers)
     assert r.status_code == 200
-    assert r.json() == {"daily_push": True, "push_time": "08:00", "breaking_push": False}
+    assert r.json() == {
+        "daily_push": True,
+        "push_time": "08:00",
+        "breaking_push": False,
+        "tz": "Asia/Shanghai",
+    }
 
 
 def test_update_settings_partial(client):
@@ -231,6 +236,42 @@ def test_update_settings_only_changes_passed_fields(client):
     body = client.get("/api/v1/me/settings", headers=client.auth_headers).json()
     assert body["daily_push"] is False  # 第一次的改动保留
     assert body["push_time"] == "09:00"
+
+
+# ---------------------------------------------------------------------------
+# 推送时区（冒烟修复 #3：tz 上送 + 校验）
+# ---------------------------------------------------------------------------
+def test_update_settings_tz_roundtrip(client):
+    r = client.put(
+        "/api/v1/me/settings",
+        headers=client.auth_headers,
+        json={"tz": "America/New_York"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["tz"] == "America/New_York"
+    # 持久化
+    r2 = client.get("/api/v1/me/settings", headers=client.auth_headers)
+    assert r2.json()["tz"] == "America/New_York"
+
+
+def test_update_settings_invalid_tz_rejected(client):
+    r = client.put(
+        "/api/v1/me/settings",
+        headers=client.auth_headers,
+        json={"tz": "Mars/Olympus"},
+    )
+    assert r.status_code == 422
+
+
+def test_update_settings_invalid_push_time_rejected(client):
+    """非法 HH:MM 不得入库（否则 dispatcher 永不命中且无报错）。"""
+    for bad in ("25:99", "8:00", "0800"):
+        r = client.put(
+            "/api/v1/me/settings",
+            headers=client.auth_headers,
+            json={"push_time": bad},
+        )
+        assert r.status_code == 422, bad
 
 
 # ---------------------------------------------------------------------------

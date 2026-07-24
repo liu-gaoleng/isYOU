@@ -6,10 +6,26 @@
 
 import Foundation
 
-/// 后端环境配置。模拟器默认连本机 8000 端口的 FastAPI。
+/// 后端环境配置。
 enum APIEnv {
-    /// 后端基址。真机联调时改成局域网 IP 或线上域名。
-    static let baseURL = URL(string: "http://127.0.0.1:8000")!
+    /// 后端基址。解析顺序：
+    /// 1. Info.plist `RDAPIBaseURL`（由构建设置 `RD_API_BASE_URL` 注入；
+    ///    真机联调：`xcodebuild RD_API_BASE_URL=http://<Mac-IP>:8000 ...` 覆盖）；
+    /// 2. DEBUG 兜底本机 127.0.0.1:8000（模拟器场景）；
+    /// 3. Release 缺失即 fatalError——配置错误应在启动时暴露，而非运行时静默全挂。
+    static let baseURL: URL = {
+        if let raw = Bundle.main.object(forInfoDictionaryKey: "RDAPIBaseURL") as? String,
+           !raw.isEmpty, !raw.hasPrefix("$"), // 构建变量未注入时的字面量防御
+           let url = URL(string: raw),
+           let scheme = url.scheme, scheme.hasPrefix("http") {
+            return url
+        }
+        #if DEBUG
+        return URL(string: "http://127.0.0.1:8000")!
+        #else
+        fatalError("RD_API_BASE_URL 未配置：Release 构建必须注入后端基址")
+        #endif
+    }()
     /// API 版本前缀。
     static let prefix = "/api/v1"
 }

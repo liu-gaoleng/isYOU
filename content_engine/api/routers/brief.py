@@ -11,9 +11,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, select
 
 from content_engine.models import (
+    PUBLIC_EVENT_STATUSES,
     Event,
     EventContent,
-    EventStatus,
     Module,
     User,
     get_session,
@@ -25,12 +25,9 @@ from ..schemas import DeepContent, EventCard, EventDetail, EventSourceItem, Feed
 
 router = APIRouter(tags=["events"])
 
-# 信息流可见状态：summarized / scored / published（已生成可读内容即可对外）
-_VISIBLE_STATUSES = (
-    EventStatus.summarized,
-    EventStatus.scored,
-    EventStatus.published,
-)
+# 对外可见状态：仅 published（护栏在 publish 阶段，未发布内容不对 C 端暴露）。
+# 冒烟期如需提前查看中间态内容，走 admin/review 接口，不放宽 C 端可见性。
+_VISIBLE_STATUSES = PUBLIC_EVENT_STATUSES
 
 
 def _latest_content(ev: Event) -> EventContent | None:

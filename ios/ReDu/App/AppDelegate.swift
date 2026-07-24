@@ -23,11 +23,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
     /// DEBUG / Release 切换 APNs 环境（与 entitlements aps-environment 对齐）。
     private var apnsEnvironment: String {
-        #if DEBUG
-        return "sandbox"
-        #else
-        return "production"
-        #endif
+        PushNotificationCoordinator.currentAPNSEnvironment
     }
 
     // MARK: - UIApplicationDelegate

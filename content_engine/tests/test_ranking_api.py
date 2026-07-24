@@ -67,8 +67,9 @@ def client(monkeypatch):
         def execute(self, stmt):
             # 命中路径会带 id.in_(ids)，回退路径不带；这里都返回全部可见事件，
             # 端点命中分支会用 by_id 重排，回退分支用此顺序。
+            # 可见性与 PUBLIC_EVENT_STATUSES 对齐：仅 published（过护栏）对外。
             visible = [e for e in events.values() if e.status in (
-                EventStatus.summarized, EventStatus.scored, EventStatus.published)]
+                EventStatus.published,)]
             # 回退分支期望按 importance 倒序
             visible_sorted = sorted(visible, key=lambda e: e.importance, reverse=True)
             return _Result(visible_sorted)
@@ -105,6 +106,19 @@ def test_ranking_redis_hit_orders_by_zset(client):
 def test_ranking_redis_hit_skips_invisible(client):
     # 3 变不可见，命中 ids 含 3 应被跳过
     client._events[3] = _stub_event(3, Module.finance, status=EventStatus.clustered)
+    client._mp.setattr(client._brief.ranking, "top", lambda m, n: [3, 1, 2])
+    ids = [item["id"] for item in client.get("/api/v1/ranking").json()]
+    assert ids == [1, 2]
+
+
+def test_ranking_skips_unpublished_intermediate_states(client):
+    """冒烟修复 #7：summarized/scored（未过护栏）不再对外可见。"""
+    client._events[3] = _stub_event(3, Module.finance, status=EventStatus.summarized)
+    client._mp.setattr(client._brief.ranking, "top", lambda m, n: [3, 1, 2])
+    ids = [item["id"] for item in client.get("/api/v1/ranking").json()]
+    assert ids == [1, 2]
+
+    client._events[3] = _stub_event(3, Module.finance, status=EventStatus.scored)
     client._mp.setattr(client._brief.ranking, "top", lambda m, n: [3, 1, 2])
     ids = [item["id"] for item in client.get("/api/v1/ranking").json()]
     assert ids == [1, 2]

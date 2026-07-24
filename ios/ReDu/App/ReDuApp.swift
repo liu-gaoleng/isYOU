@@ -32,6 +32,13 @@ struct ReDuApp: App {
                 Task { await AnalyticsTracker.shared.flushNow() }
             }
         }
+        .onChange(of: auth.isAuthenticated) { isAuthenticated in
+            // 未登录首启时 token 上报必 401 被丢弃；登录成功后补报换绑，
+            // 否则本次会话收不到推送（要杀进程重进才行）。
+            if isAuthenticated {
+                Task { await PushNotificationCoordinator.shared.syncRegistrationAfterLogin() }
+            }
+        }
     }
 
     /// 监听 StoreKit 交易更新（续订 / Ask to Buy / 退款），逐笔上送后端核销以同步会员态。
@@ -46,7 +53,8 @@ struct ReDuApp: App {
     }
 
     /// 阶段 4.2：申请通知权限 → 注册远端推送（token 通过 AppDelegate 异步回调）。
-    /// 未登录时也注册，token 上送会因 401 被丢弃；登录后下次进 App 自动重试。
+    /// 未登录时也注册，token 上送会因 401 被丢弃；登录成功后由
+    /// ``onChange(of: auth.isAuthenticated)`` 触发补报换绑。
     @MainActor
     private func bootstrapPushNotifications() async {
         let granted = await PushNotificationCoordinator.shared.requestAuthorization()
