@@ -66,7 +66,7 @@ final class APIClientTests: XCTestCase {
     func test_authedEndpoint_injectsBearer() async throws {
         StubURLProtocol.statusCode = 200
         StubURLProtocol.responseData = """
-        {"daily_push": true, "push_time": "08:00", "breaking_push": false}
+        {"daily_push": true, "push_time": "08:00", "breaking_push": false, "tz": "Asia/Shanghai"}
         """.data(using: .utf8)!
         let client = makeClient(token: "tok-123")
         _ = try await client.send(.getSettings, as: PushSettings.self)
