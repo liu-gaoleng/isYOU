@@ -202,7 +202,8 @@ class ApnsClient:
         - ``collapse_id``：相同 id 的推送在锁屏上合并为一条（早报建议传日期）。
         - ``topic_suffix``：apns-topic 默认是 bundle_id；voip/complication 等需要后缀。
         """
-        apns_id = uuid.uuid4().hex
+        # apns-id 必须是带连字符的标准 UUID（hex 无连字符会被 APNs 拒为 BadMessageId）
+        apns_id = str(uuid.uuid4())
         topic = self._bundle_id + (topic_suffix or "")
         headers = {
             "authorization": f"bearer {self._provider_token()}",
