@@ -84,6 +84,35 @@ struct DeepContent: Codable, Hashable {
     }
 }
 
+/// 热点透视三段成稿，对齐 schemas.InsightSections。
+/// 免责声明不在其中：由 EventInsight.disclaimer 独立下发（服务端常量，不入库）。
+struct InsightSections: Codable, Equatable {
+    /// 来龙去脉（历史追溯）。
+    let history: String
+    /// 现状剖析（原因拆解）。
+    let current: String
+    /// 趋势推演（审慎预测）。
+    let forecast: String
+}
+
+/// 热点透视，对齐 schemas.EventInsight（GET/POST /event/{id}/insight）。
+/// status：none / pending / generating / ready / failed；无记录时返回 none（非 404）。
+struct EventInsight: Codable, Equatable {
+    let eventID: Int
+    let status: String
+    let sections: InsightSections?
+    let disclaimer: String?
+    /// failed 时的用户可读原因。
+    let error: String?
+    let generatedAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case eventID = "event_id"
+        case status, sections, disclaimer, error
+        case generatedAt = "generated_at"
+    }
+}
+
 /// 信息流分页响应，对齐 schemas.FeedPage。
 struct FeedPage: Codable {
     let items: [EventCard]

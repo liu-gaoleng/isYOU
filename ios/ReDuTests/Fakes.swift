@@ -14,7 +14,15 @@ final class FakeContentRepository: ContentRepositoryProtocol {
     var detailResult: EventDetail?
     var briefError: Error?
 
+    /// 热点透视：GET 按队列逐个返回（测轮询推进）；耗尽后抛 invalidResponse
+    /// （VM 轮询遇到单次错误会 continue，由超时上限兜底）。
+    var insightResults: [Result<EventInsight, Error>] = []
+    /// 热点透视：POST 触发的固定编排结果。
+    var triggerResult: Result<EventInsight, Error>?
+
     private(set) var requestedBriefLimits: [Int] = []
+    private(set) var insightCallCount = 0
+    private(set) var triggerCallCount = 0
 
     func dailyBrief(date: String?, module: ContentModule?, limit: Int) async throws -> [EventCard] {
         requestedBriefLimits.append(limit)
@@ -34,6 +42,35 @@ final class FakeContentRepository: ContentRepositoryProtocol {
         guard let detailResult else { throw APIError.invalidResponse }
         return detailResult
     }
+
+    func insight(eventID: Int) async throws -> EventInsight {
+        insightCallCount += 1
+        let next = insightResults.isEmpty ? nil : insightResults.removeFirst()
+        return try (next ?? .failure(APIError.invalidResponse)).get()
+    }
+
+    func triggerInsight(eventID: Int) async throws -> EventInsight {
+        triggerCallCount += 1
+        return try (triggerResult ?? .failure(APIError.invalidResponse)).get()
+    }
+}
+
+/// 构造热点透视的便捷工厂。
+func makeInsight(
+    eventID: Int = 7,
+    status: String = "ready",
+    error: String? = nil
+) -> EventInsight {
+    EventInsight(
+        eventID: eventID,
+        status: status,
+        sections: status == "ready"
+            ? InsightSections(history: "来龙去脉正文", current: "现状剖析正文", forecast: "趋势推演正文")
+            : nil,
+        disclaimer: status == "ready" ? "免责声明" : nil,
+        error: error,
+        generatedAt: status == "ready" ? Date(timeIntervalSince1970: 1_780_000_000) : nil
+    )
 }
 
 /// 构造卡片的便捷工厂。

@@ -359,7 +359,39 @@ ANALYTICS_EVENT_NAMES = frozenset({
     "search",
     "favorite",
     "share",
+    "insight_view",
 })
+
+
+# ---------------------------------------------------------------------------
+# 热点透视（单事件按需 LLM 深度分析，会员专属）
+# ---------------------------------------------------------------------------
+class InsightSections(BaseModel):
+    """三段成稿：来龙去脉 / 现状剖析 / 趋势推演。
+
+    免责声明不进 sections（不入库），由 ``EventInsight.disclaimer`` 独立返回。
+    """
+
+    history: str
+    current: str
+    forecast: str
+
+
+class EventInsight(BaseModel):
+    """GET/POST /event/{id}/insight 响应。
+
+    无记录时返回 ``status="none"``（正常恢复路径，不走 404）。
+    """
+
+    event_id: int
+    # none / pending / generating / ready / failed
+    status: str
+    sections: InsightSections | None = None
+    # ready 时恒为服务端常量（客户端不可改文案）
+    disclaimer: str | None = None
+    # failed 时的用户可读原因
+    error: str | None = None
+    generated_at: datetime | None = None
 
 
 class AnalyticsEventIn(BaseModel):

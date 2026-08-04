@@ -25,6 +25,8 @@ enum AnalyticsEventName: String {
     case favorite
     /// 分享。
     case share
+    /// 热点透视成稿被浏览（生成完成展示时埋一次）。
+    case insightView = "insight_view"
 }
 
 /// 上送时的单条 JSON payload，蛇形字段与后端 ``AnalyticsEventIn`` 对齐。

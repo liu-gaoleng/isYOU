@@ -35,6 +35,7 @@ from .ops import (
 from .schema import (
     EMBEDDING_DIM,
     Event,
+    EventAnalysis,
     EventArticle,
     EventContent,
     RawArticle,
@@ -57,6 +58,7 @@ __all__ = [
     "DeviceToken",
     "DigestConfig",
     "Event",
+    "EventAnalysis",
     "EventArticle",
     "EventContent",
     "EventStatus",

@@ -10,6 +10,10 @@ protocol ContentRepositoryProtocol {
     func feed(cursor: String?, module: ContentModule?, limit: Int) async throws -> FeedPage
     func ranking(module: ContentModule?, limit: Int) async throws -> [EventCard]
     func eventDetail(id: Int) async throws -> EventDetail
+    /// 热点透视：查询状态/结果（会员专属，401/403 由 VM 映射引导态）。
+    func insight(eventID: Int) async throws -> EventInsight
+    /// 热点透视：触发生成（幂等，进行中重复调用返回现状）。
+    func triggerInsight(eventID: Int) async throws -> EventInsight
 }
 
 final class ContentRepository: ContentRepositoryProtocol {
@@ -44,5 +48,13 @@ final class ContentRepository: ContentRepositoryProtocol {
 
     func eventDetail(id: Int) async throws -> EventDetail {
         try await client.send(.eventDetail(id: id), as: EventDetail.self)
+    }
+
+    func insight(eventID: Int) async throws -> EventInsight {
+        try await client.send(.eventInsight(id: eventID), as: EventInsight.self)
+    }
+
+    func triggerInsight(eventID: Int) async throws -> EventInsight {
+        try await client.send(.triggerInsight(id: eventID), as: EventInsight.self)
     }
 }

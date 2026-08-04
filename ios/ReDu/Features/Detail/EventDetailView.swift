@@ -12,6 +12,7 @@ struct EventDetailView: View {
 
     @EnvironmentObject private var auth: AuthStore
     @StateObject private var vm = EventDetailViewModel()
+    @StateObject private var insightVM = InsightViewModel()
     @Environment(\.openURL) private var openURL
     @State private var showLogin = false
     @State private var showPaywall = false
@@ -31,10 +32,17 @@ struct EventDetailView: View {
                 Task {
                     await auth.applyMembership(status)
                     await vm.load(id: eventID, isAuthenticated: auth.isAuthenticated)
+                    // 购买成功即恢复透视状态（ready 直出 / 未生成显示入口）
+                    await insightVM.load(eventID: eventID)
                 }
             }
         }
-        .task { await vm.load(id: eventID, isAuthenticated: auth.isAuthenticated) }
+        .task {
+            await vm.load(id: eventID, isAuthenticated: auth.isAuthenticated)
+            // 会员恢复透视状态（非会员由入口卡引导，不打扰）
+            if auth.isMember { await insightVM.load(eventID: eventID) }
+        }
+        .onDisappear { insightVM.cancelPolling() }
     }
 
     @ToolbarContentBuilder
@@ -149,6 +157,8 @@ struct EventDetailView: View {
                         .lineSpacing(6)
                 }
 
+                insightSection
+
                 if let deep = detail.deepContent {
                     deepContentSection(deep)
                 }
@@ -251,6 +261,136 @@ struct EventDetailView: View {
             showPaywall = true
         } else {
             showLogin = true
+        }
+    }
+
+    // MARK: - 热点透视（会员专属，按需生成）
+
+    /// 透视区：入口卡 / 生成中 / 三段成稿 / 失败重试 四态。
+    /// 卡片容器样式与 deepContentSection 对齐（accentSoft 描边）。
+    @ViewBuilder
+    private var insightSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "telescope")
+                    .font(.system(size: 13))
+                    .foregroundStyle(DSColor.accent)
+                Text("热点透视")
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundStyle(DSColor.accent)
+                Spacer()
+                if case .ready(let insight) = insightVM.state, let at = insight.generatedAt {
+                    Text("生成于 \(DateText.relative(at))")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(DSColor.ink3)
+                }
+            }
+
+            switch insightVM.state {
+            case .idle, .loginRequired, .memberRequired:
+                insightEntry
+            case .generating:
+                HStack(spacing: 10) {
+                    ProgressView().tint(DSColor.accent)
+                    Text("AI 正在生成深度透视，约需 10–60 秒…")
+                        .font(.system(size: 13))
+                        .foregroundStyle(DSColor.ink2)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+            case .ready(let insight):
+                if let sections = insight.sections {
+                    insightBlock(title: "来龙去脉", text: sections.history)
+                    insightBlock(title: "现状剖析", text: sections.current)
+                    insightBlock(title: "趋势推演", text: sections.forecast)
+                    if let disclaimer = insight.disclaimer {
+                        Text(disclaimer)
+                            .font(.system(size: 11))
+                            .foregroundStyle(DSColor.ink3)
+                            .lineSpacing(3)
+                            .padding(.top, 2)
+                    }
+                }
+            case .failed(let msg):
+                VStack(spacing: 8) {
+                    Text(msg)
+                        .font(.system(size: 13))
+                        .foregroundStyle(DSColor.ink2)
+                    Button {
+                        Task { await insightVM.generate(eventID: eventID) }
+                    } label: {
+                        Text("重试")
+                            .font(.system(size: 13, weight: .bold))
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 8)
+                            .background(DSColor.accent)
+                            .foregroundStyle(DSColor.bg)
+                            .clipShape(Capsule())
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DSColor.card2)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(DSColor.accentSoft, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    /// 入口卡：会员「立即生成」；非会员/未登录显示锁定态并引导。
+    private var insightEntry: some View {
+        VStack(spacing: 8) {
+            Text("来龙去脉 · 现状剖析 · 趋势推演")
+                .font(.system(size: 13))
+                .foregroundStyle(DSColor.ink2)
+            Button {
+                insightAction()
+            } label: {
+                HStack(spacing: 6) {
+                    if !auth.isMember {
+                        Image(systemName: "lock.fill").font(.system(size: 11))
+                    }
+                    Text(insightEntryTitle)
+                        .font(.system(size: 14, weight: .bold))
+                }
+                .padding(.horizontal, 28)
+                .padding(.vertical, 10)
+                .background(DSColor.accent)
+                .foregroundStyle(DSColor.bg)
+                .clipShape(Capsule())
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 4)
+    }
+
+    private var insightEntryTitle: String {
+        if auth.isMember { return "立即生成" }
+        return auth.isAuthenticated ? "会员专属 · 开通后生成" : "登录后生成"
+    }
+
+    private func insightAction() {
+        if !auth.isAuthenticated {
+            showLogin = true
+        } else if !auth.isMember {
+            showPaywall = true
+        } else {
+            Task { await insightVM.generate(eventID: eventID) }
+        }
+    }
+
+    /// ready 态单个小节：小节标题 + 正文。
+    private func insightBlock(title: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 13, weight: .heavy))
+                .foregroundStyle(DSColor.ink)
+            Text(text)
+                .font(.system(size: 15))
+                .foregroundStyle(DSColor.ink)
+                .lineSpacing(6)
         }
     }
 

@@ -60,4 +60,17 @@ def get_current_user(user: User | None = Depends(get_optional_user)) -> User:
     return user
 
 
-__all__ = ["get_current_user", "get_optional_user", "is_member"]
+def require_member(user: User = Depends(get_current_user)) -> User:
+    """会员专属端点门禁：未登录 401（get_current_user 拦）；已登录非会员 403。
+
+    detail 带 machine-readable code，客户端据此拉付费墙而非弹错误。
+    """
+    if not is_member(user):
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "member_required", "cta": "开通会员，解锁热点透视"},
+        )
+    return user
+
+
+__all__ = ["get_current_user", "get_optional_user", "is_member", "require_member"]

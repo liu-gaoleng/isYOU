@@ -14,6 +14,7 @@ from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     DateTime,
@@ -200,6 +201,47 @@ class EventContent(IdMixin, TimestampMixin, Base):
     llm_meta: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     event: Mapped[Event] = relationship(back_populates="contents")
+
+
+# ----------------------------------------------------------------------------
+# 5b. event_analyses —— 热点透视（单事件按需 LLM 深度分析，会员专属）
+# ----------------------------------------------------------------------------
+class EventAnalysis(IdMixin, TimestampMixin, Base):
+    """热点透视：来龙去脉 / 现状剖析 / 趋势推演 三段深度分析。
+
+    设计要点：
+    - 每事件最多一行：event_id 唯一约束即幂等锚点，一次生成、全会员共享；
+    - status 用 String(16) 而非 PgEnum（与 SourceHealth 同款取舍：SQLite 单测可建表）；
+    - JSON 列用 JSONB().with_variant(JSON, "sqlite")：PG 端 JSONB，SQLite 单测可建表；
+    - 免责声明不落库：由响应层以独立字段返回，改文案不用洗数据。
+    """
+
+    __tablename__ = "event_analyses"
+    __table_args__ = (UniqueConstraint("event_id", name="uq_event_analyses_event_id"),)
+
+    event_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("events.id", ondelete="CASCADE"), nullable=False
+    )
+    # pending(已入队) / generating(LLM 调用中) / ready / failed
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    # 三段成稿 {"history","current","forecast"}；ready 时非空
+    sections: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB().with_variant(JSON, "sqlite"), nullable=True
+    )
+    # history 段素材留痕：召回的相关历史事件 id
+    related_event_ids: Mapped[list[int]] = mapped_column(
+        JSONB().with_variant(JSON, "sqlite"), nullable=False, default=list
+    )
+    error: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # model/usage/cost/temperature/prompt_version/fingerprint（对齐 summarize 留痕）
+    llm_meta: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB().with_variant(JSON, "sqlite"), nullable=True
+    )
+    generated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    event: Mapped[Event] = relationship()
 
 
 # ----------------------------------------------------------------------------

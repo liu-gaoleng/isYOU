@@ -47,6 +47,10 @@ enum Endpoint {
     case eventDetail(id: Int)
     case search(q: String, cursor: String?, module: String?, limit: Int)
 
+    // 热点透视（会员专属）：POST 触发生成，GET 查询状态/结果
+    case eventInsight(id: Int)
+    case triggerInsight(id: Int)
+
     // 账号
     case appleLogin(body: Data)
     case devLogin(body: Data)
@@ -78,10 +82,12 @@ enum Endpoint {
     var method: HTTPMethod {
         switch self {
         case .dailyBrief, .feed, .ranking, .eventDetail, .search,
+             .eventInsight,
              .me, .billingPlans, .membership,
              .listFavorites, .listHistory, .getSettings:
             return .get
         case .appleLogin, .devLogin, .billingVerify, .billingRestore,
+             .triggerInsight,
              .addFavorite, .recordHistory, .registerDevice, .analyticsEvents:
             return .post
         case .updateSettings:
@@ -95,6 +101,7 @@ enum Endpoint {
     var requiresAuth: Bool {
         switch self {
         case .me, .billingVerify, .billingRestore, .membership,
+             .eventInsight, .triggerInsight,
              .addFavorite, .removeFavorite, .listFavorites,
              .recordHistory, .listHistory, .clearHistory, .getSettings, .updateSettings,
              .registerDevice, .unregisterDevice,
@@ -114,6 +121,7 @@ enum Endpoint {
         case .feed: return "\(p)/feed"
         case .ranking: return "\(p)/ranking"
         case .eventDetail(let id): return "\(p)/event/\(id)"
+        case .eventInsight(let id), .triggerInsight(let id): return "\(p)/event/\(id)/insight"
         case .search: return "\(p)/search"
         case .appleLogin: return "\(p)/auth/apple"
         case .devLogin: return "\(p)/auth/dev-login"

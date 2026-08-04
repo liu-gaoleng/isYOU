@@ -26,6 +26,7 @@ celery_app = Celery(
         "content_engine.tasks.pipeline_tasks",
         "content_engine.tasks.billing_tasks",
         "content_engine.tasks.push_tasks",
+        "content_engine.tasks.insight_tasks",
     ],
 )
 
