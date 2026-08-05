@@ -131,7 +131,10 @@ final class InsightViewModelTests: XCTestCase {
         vm.cancelPolling()
         let calls = repo.insightCallCount
         try? await Task.sleep(for: .milliseconds(60))
-        XCTAssertEqual(repo.insightCallCount, calls, "取消后不应再有轮询调用")
+        // 取消瞬间至多有一个已在途的调用完成（异步取消的固有语义：in-flight 不可撤回）
+        XCTAssertLessThanOrEqual(
+            repo.insightCallCount - calls, 1, "取消后至多完成一个在途调用，不应再发起新调用"
+        )
     }
 
     func test_retryAfterFailed_reGenerates() async {
