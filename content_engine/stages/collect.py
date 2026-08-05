@@ -21,7 +21,6 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
 from sqlalchemy import desc, select
-from sqlalchemy.exc import IntegrityError
 
 from content_engine.config import settings
 from content_engine.models import RawArticle, Source, SourceHealth, get_session
@@ -113,37 +112,59 @@ def _record_health(
 
 
 def _collect_one(source: Source) -> tuple[int, int, int]:
-    """从单个信源拉取，返回 (新增, 已存在/跳过, 解析得到的总条目数)。"""
+    """从单个信源拉取，返回 (新增, 已存在/跳过, 解析得到的总条目数)。
+
+    去重采用「批量预查 + seen 集合」而非撞唯一约束后回滚——曾用
+    ``s.flush() + except IntegrityError: s.rollback()`` 实现，整事务回滚会把
+    本轮已 flush 的新文章一并抹掉（feed 新文章在前、重复条目在后，撞上即全灭），
+    这是「collect 新增几十但 clean 处理 0」的根因。
+    """
     feed = _parse_feed(source.url)
     inserted = 0
     skipped = 0
     total = len(feed.entries)
     now = datetime.now(timezone.utc)
+
+    # 先解析出候选条目
+    items: list[tuple[str, str, str, dict]] = []
+    for entry in feed.entries[: settings.threshold.max_per_source]:
+        title = clean_text(entry.get("title", ""))
+        content = clean_text(entry.get("summary", entry.get("description", "")))
+        url = (entry.get("link") or "").strip()
+        if not title or not url:
+            skipped += 1
+            continue
+        items.append((title, content, url, entry))
+
     with get_session() as s:
-        for entry in feed.entries[: settings.threshold.max_per_source]:
-            title = clean_text(entry.get("title", ""))
-            content = clean_text(entry.get("summary", entry.get("description", "")))
-            url = (entry.get("link") or "").strip()
-            if not title or not url:
+        # 批量预查已存在的 URL（一次查询代替逐条撞约束）
+        existing: set[str] = set()
+        if items:
+            existing = set(
+                s.execute(
+                    select(RawArticle.url).where(
+                        RawArticle.url.in_([url for _, _, url, _ in items])
+                    )
+                ).scalars()
+            )
+        seen = set(existing)
+        for title, content, url, entry in items:
+            if url in seen:
                 skipped += 1
                 continue
-            article = RawArticle(
-                source_id=source.id,
-                url=url[:1024],
-                title=title[:512],
-                content=content,
-                raw_hash=content_hash(title, content),
-                published_at=_parse_published(entry),
-                fetched_at=now,
+            s.add(
+                RawArticle(
+                    source_id=source.id,
+                    url=url[:1024],
+                    title=title[:512],
+                    content=content,
+                    raw_hash=content_hash(title, content),
+                    published_at=_parse_published(entry),
+                    fetched_at=now,
+                )
             )
-            s.add(article)
-            try:
-                s.flush()
-                inserted += 1
-            except IntegrityError:
-                # 触发 uq_raw_articles_url：已采集过，跳过
-                s.rollback()
-                skipped += 1
+            seen.add(url)
+            inserted += 1
     return inserted, skipped, total
 
 
