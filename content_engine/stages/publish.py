@@ -25,7 +25,7 @@ from content_engine.models import (
     EventStatus,
     get_session,
 )
-from content_engine.services import guard
+from content_engine.services import guard, ranking
 
 
 def _latest_content(ev: Event) -> EventContent | None:
@@ -45,6 +45,7 @@ def _source_texts(ev: Event) -> list[str]:
 
 def run() -> dict:
     stats = {"checked": 0, "published": 0, "blocked": 0, "patched_disclaimer": 0}
+    blocked_ids: list[int] = []
     with get_session() as s:
         events = (
             s.execute(select(Event).where(Event.status == EventStatus.scored))
@@ -73,15 +74,19 @@ def run() -> dict:
             else:
                 ev.status = EventStatus.reviewing
                 stats["blocked"] += 1
+                blocked_ids.append(ev.id)
                 # 把拦截原因留痕到 EventContent.llm_meta.guard，供 CMS 定位
                 if content is not None:
                     meta = dict(content.llm_meta or {})
                     meta["guard"] = {"passed": False, "violations": result.violations}
                     content.llm_meta = meta
 
+    # 打回的事件从榜单移除：score 写榜在护栏之前，不清会让客户端过滤后不足 N 条
+    removed = ranking.remove(blocked_ids)
+
     print(
         f"  [publish] 检查 {stats['checked']} 个事件  发布 {stats['published']}  "
-        f"打回 {stats['blocked']}  补免责 {stats['patched_disclaimer']}"
+        f"打回 {stats['blocked']}  补免责 {stats['patched_disclaimer']}  清榜 {removed}"
     )
     return stats
 

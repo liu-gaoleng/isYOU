@@ -89,6 +89,35 @@ def rebuild(rows: list[tuple[int, str, float]]) -> int:
         return 0
 
 
+def remove(event_ids: list[int]) -> int:
+    """从全部榜单 ZSet 移除事件（publish 打回/拒绝后清榜）。
+
+    保证榜单成员始终对外可见：score 写榜发生在 publish 护栏之前，
+    被护栏打回（reviewing）的事件必须从 ZSet 移除，否则客户端过滤后
+    TOP-N 会显示不足 N 条。
+
+    Returns:
+        请求移除的条数（降级时返回 0）。
+    """
+    if not event_ids:
+        return 0
+    client = _get_client()
+    if client is None:
+        return 0
+
+    members = [str(i) for i in event_ids]
+    try:
+        pipe = client.pipeline()
+        pipe.zrem(_ALL_KEY, *members)
+        for m in Module:
+            pipe.zrem(_module_key(m.value), *members)
+        pipe.execute()
+        return len(members)
+    except Exception as e:
+        logger.warning("[ranking] 移除失败，降级：%s", e)
+        return 0
+
+
 def top(module: str | None = None, n: int = 10) -> list[int] | None:
     """取榜单 TOP-N 的 event_id（按 importance 倒序）。
 

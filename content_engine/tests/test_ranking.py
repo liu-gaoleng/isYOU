@@ -26,6 +26,10 @@ class _FakePipeline:
         self._ops.append(("zremrangebyrank", key, start, stop))
         return self
 
+    def zrem(self, key, *members):
+        self._ops.append(("zrem", key, list(members)))
+        return self
+
     def execute(self):
         for op in self._ops:
             if op[0] == "delete":
@@ -41,6 +45,10 @@ class _FakePipeline:
                 self._store[key] = {
                     k: v for i, (k, v) in enumerate(items) if i not in sel
                 }
+            elif op[0] == "zrem":
+                key, members = op[1], op[2]
+                for m in members:
+                    self._store.get(key, {}).pop(m, None)
         self._ops.clear()
 
 
@@ -98,6 +106,25 @@ def test_degrade_when_disabled(monkeypatch):
     monkeypatch.setattr(ranking.settings.ranking, "enabled", False)
     assert ranking.rebuild([(1, "tech", 1.0)]) == 0
     assert ranking.top(None, 10) is None
+
+
+def test_remove_evicts_from_all_boards(monkeypatch):
+    """publish 打回清榜：全站榜 + 分模块榜都移除。"""
+    fake = _FakeRedis()
+    monkeypatch.setattr(ranking, "_get_client", lambda: fake)
+    ranking.rebuild([(1, "tech", 90.0), (2, "tech", 80.0), (3, "finance", 70.0)])
+
+    assert ranking.remove([1, 3]) == 2
+
+    assert ranking.top(None, 10) == [2]          # 全站榜只剩 2
+    assert ranking.top("tech", 10) == [2]        # tech 榜只剩 2
+    assert ranking.top("finance", 10) == []      # finance 榜被清空
+
+
+def test_remove_empty_and_degrade(monkeypatch):
+    assert ranking.remove([]) == 0               # 空列表短路
+    monkeypatch.setattr(ranking, "_get_client", lambda: None)
+    assert ranking.remove([1]) == 0              # Redis 不可用降级
 
 
 def test_degrade_when_client_unavailable(monkeypatch):

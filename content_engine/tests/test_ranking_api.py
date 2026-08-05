@@ -111,6 +111,25 @@ def test_ranking_redis_hit_skips_invisible(client):
     assert ids == [1, 2]
 
 
+def test_ranking_overfetch_fills_to_limit(client):
+    """不可见事件占位时，端点超额取数（limit*3）并填满 limit。
+
+    回归场景：热榜 TOP10 只显示 9 条——ZSet 含被打回（reviewing）事件，
+    过滤后不足 limit。修复后端点应向 ranking.top 请求 limit*3 个 id。
+    """
+    client._events[9] = _stub_event(9, Module.tech, status=EventStatus.reviewing)
+    captured = {}
+
+    def fake_top(module, n):
+        captured["n"] = n
+        return [9, 1, 3, 2]  # 9 不可见；可见为 1,3,2
+
+    client._mp.setattr(client._brief.ranking, "top", fake_top)
+    ids = [item["id"] for item in client.get("/api/v1/ranking?limit=2").json()]
+    assert captured["n"] == 6          # 2 * 3 超额取
+    assert ids == [1, 3]               # 填满 limit=2，不可见的 9 被跳过
+
+
 def test_ranking_skips_unpublished_intermediate_states(client):
     """冒烟修复 #7：summarized/scored（未过护栏）不再对外可见。"""
     client._events[3] = _stub_event(3, Module.finance, status=EventStatus.summarized)

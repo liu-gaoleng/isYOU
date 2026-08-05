@@ -241,7 +241,9 @@ def ranking_top(
 ) -> list[EventCard]:
     """热度榜单 TOP-N：优先读 Redis ZSet（O(logN)），Redis 不可用回退 DB importance 排序。"""
     module_val = _parse_module(module).value if module else None
-    ids = ranking.top(module_val, limit)
+    # 超额取 3 倍再过滤可见性：ZSet 可能含护栏打回后尚未清榜的事件，
+    # 只取 limit 条过滤后会显示不足 limit（热榜"TOP10 只有 9 条"的根因）。
+    ids = ranking.top(module_val, min(limit * 3, 50))
     with get_session() as s:
         if ids:
             events = s.execute(select(Event).where(Event.id.in_(ids))).scalars().all()
@@ -250,7 +252,7 @@ def ranking_top(
                 by_id[i]
                 for i in ids
                 if i in by_id and by_id[i].status in _VISIBLE_STATUSES
-            ]
+            ][:limit]
             return [_to_card(ev) for ev in ordered]
         stmt = (
             select(Event)
