@@ -9,6 +9,12 @@
 # ---------- builder ----------
 FROM python:3.12-slim AS builder
 
+# CN 构建加速（默认走官方源；国内服务器构建时传：
+#   --build-arg APT_MIRROR=mirrors.tencentyun.com \
+#   --build-arg PIP_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple）
+ARG APT_MIRROR=
+ARG PIP_INDEX_URL=https://pypi.org/simple
+
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
     PYTHONDONTWRITEBYTECODE=1
@@ -16,7 +22,11 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 WORKDIR /build
 
 # 系统编译依赖（psycopg / sentence-transformers 编译期需要）
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN if [ -n "$APT_MIRROR" ]; then \
+        sed -i "s|deb.debian.org|$APT_MIRROR|g" /etc/apt/sources.list.d/*.sources 2>/dev/null \
+        || sed -i "s|deb.debian.org|$APT_MIRROR|g" /etc/apt/sources.list; \
+    fi \
+    && apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         gcc \
         libpq-dev \
@@ -27,11 +37,13 @@ COPY pyproject.toml ./
 COPY content_engine/__init__.py content_engine/__init__.py
 
 # 只装运行时依赖（dev 依赖留给 CI）
-RUN pip install --upgrade pip \
-    && pip install --prefix=/install .
+RUN pip install --upgrade pip --index-url "$PIP_INDEX_URL" \
+    && pip install --prefix=/install --index-url "$PIP_INDEX_URL" .
 
 # ---------- runtime ----------
 FROM python:3.12-slim AS runtime
+
+ARG APT_MIRROR=
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -44,7 +56,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # 仅装运行时所需的系统库
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN if [ -n "$APT_MIRROR" ]; then \
+        sed -i "s|deb.debian.org|$APT_MIRROR|g" /etc/apt/sources.list.d/*.sources 2>/dev/null \
+        || sed -i "s|deb.debian.org|$APT_MIRROR|g" /etc/apt/sources.list; \
+    fi \
+    && apt-get update && apt-get install -y --no-install-recommends \
         libpq5 \
         curl \
     && rm -rf /var/lib/apt/lists/* \

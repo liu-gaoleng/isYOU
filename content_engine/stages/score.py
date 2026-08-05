@@ -102,7 +102,6 @@ def score_event(event: Event) -> float:
 
 def run() -> dict:
     stats = {"scored": 0, "ranked": 0}
-    ranked_rows: list[tuple[int, str, float]] = []
     with get_session() as s:
         events = (
             s.execute(
@@ -115,8 +114,18 @@ def run() -> dict:
             ev.importance = score_event(ev)
             ev.source_count = len({link.article.source_id for link in ev.article_links})
             ev.status = EventStatus.scored
-            ranked_rows.append((ev.id, ev.module.value, ev.importance))
             stats["scored"] += 1
+
+        # 阶段 3.4：用「全量已过评分」快照重建榜单（scored + published），
+        # 而非仅本批——否则每轮定跑都把榜单缩到最新一批（几条），
+        # 真实场景下热榜会越跑越空（「TOP10 只显示 3 条」的根因）。
+        # 被护栏打回的事件由 publish 阶段 ranking.remove 清榜兜底。
+        snapshot = s.execute(
+            select(Event.id, Event.module, Event.importance).where(
+                Event.status.in_((EventStatus.scored, EventStatus.published))
+            )
+        ).all()
+        ranked_rows = [(eid, m.value, imp or 0.0) for eid, m, imp in snapshot]
 
     # 阶段 3.4：写 Redis 榜单（可降级——Redis 不可用时静默跳过）
     if ranked_rows:
