@@ -10,6 +10,7 @@ import Foundation
 final class FakeContentRepository: ContentRepositoryProtocol {
     var briefByLimit: (Int) -> [EventCard] = { _ in [] }
     var rankingResult: [EventCard] = []
+    var rankingError: Error?
     var feedResult: FeedPage = FeedPage(items: [], nextCursor: nil)
     var detailResult: EventDetail?
     var briefError: Error?
@@ -35,7 +36,8 @@ final class FakeContentRepository: ContentRepositoryProtocol {
     }
 
     func ranking(module: ContentModule?, limit: Int) async throws -> [EventCard] {
-        rankingResult
+        if let rankingError { throw rankingError }
+        return rankingResult
     }
 
     func eventDetail(id: Int) async throws -> EventDetail {

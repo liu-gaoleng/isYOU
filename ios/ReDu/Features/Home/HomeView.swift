@@ -1,7 +1,8 @@
 //
 //  HomeView.swift
-//  今日简报首页（清单 2.2）：品牌行 + slogan + 日期 + 今日热榜 TOP10 + 聚合卡片流。
-//  下拉刷新；卡片可点开详情。
+//  今日首页（清单 2.2，2026-08-05 改版）：TODAY 头部（日期 + slogan）+ 今日热榜 TOP10。
+//  原「今日聚合」四模块分区已下线（与频道页内容耦合）；深度浏览走频道页。
+//  下拉刷新；榜单行可点开详情。
 //
 
 import SwiftUI
@@ -64,7 +65,7 @@ struct HomeView: View {
                 header
 
                 if !vm.ranking.isEmpty {
-                    sectionTitle("今日热榜", accent: "TOP \(vm.ranking.count)")
+                    sectionTitle("今日热榜", accent: "TOP 10")
                     VStack(spacing: 0) {
                         ForEach(Array(vm.ranking.enumerated()), id: \.element.id) { idx, card in
                             NavigationLink(value: AppRoute.eventDetail(id: card.id, title: card.title)) {
@@ -78,70 +79,11 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, 4)
                 }
-
-                sectionTitle("今日聚合", accent: "\(vm.totalCount) 条")
-                ForEach(vm.sections) { section in
-                    moduleHeader(section.module, count: section.cards.count)
-                    ForEach(section.cards) { card in
-                        NavigationLink(value: AppRoute.eventDetail(id: card.id, title: card.title)) {
-                            EventCardView(card: card)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.bottom, 10)
-                    }
-                }
-
-                loadMoreFooter
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
         }
         .refreshable { await vm.refresh() }
-    }
-
-    /// 模块分区小标题：左侧色条 + 模块名 + 该区条数。
-    private func moduleHeader(_ module: ContentModule, count: Int) -> some View {
-        HStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 1.5)
-                .fill(module.tint)
-                .frame(width: 3, height: 14)
-            Text(module.displayName)
-                .font(.system(size: 14, weight: .heavy))
-                .foregroundStyle(DSColor.ink)
-            Text("\(count)")
-                .font(.system(size: 10.5, design: .monospaced))
-                .foregroundStyle(DSColor.ink3)
-            Spacer()
-        }
-        .padding(.top, 16)
-        .padding(.bottom, 10)
-    }
-
-    @ViewBuilder
-    private var loadMoreFooter: some View {
-        if vm.isLoadingMore {
-            HStack {
-                Spacer()
-                ProgressView().tint(DSColor.accent)
-                Spacer()
-            }
-            .padding(.vertical, 16)
-        } else if vm.hasMore {
-            Button {
-                Task { await vm.loadMore() }
-            } label: {
-                Text("加载更多 ∨")
-                    .font(.system(size: 12.5, weight: .bold))
-                    .foregroundStyle(DSColor.ink3)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10).stroke(DSColor.line, lineWidth: 1)
-                    )
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 8)
-        }
     }
 
     private var header: some View {
