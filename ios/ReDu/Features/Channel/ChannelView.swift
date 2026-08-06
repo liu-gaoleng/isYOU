@@ -1,6 +1,6 @@
 //
 //  ChannelView.swift
-//  四大模块频道（清单 2.3）：顶部 segment 切换 + 各频道 TOP10 + 要闻卡流 + 加载更多。
+//  四大模块频道（清单 2.3）：顶部 segment 切换 + 各频道 TOP5 热榜 + 要闻卡流 + 加载更多。
 //
 
 import SwiftUI

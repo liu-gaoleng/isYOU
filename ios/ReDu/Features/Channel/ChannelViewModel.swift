@@ -1,13 +1,16 @@
 //
 //  ChannelViewModel.swift
-//  频道页 VM：按模块拉 TOP10 热榜 + 信息流（cursor 分页加载更多）。
+//  频道页 VM：按模块拉 TOP5 热榜 + 信息流（cursor 分页加载更多）。
 //  记住上次选中的频道（UserDefaults）。
+//  2026-08-06：各频道热榜 TOP10 → 固定 TOP5（产品决策：榜单精简化）。
 //
 
 import Foundation
 
 @MainActor
 final class ChannelViewModel: ObservableObject {
+    /// 频道热榜固定条数（产品决策 2026-08-06：每频道固定 5 条）。
+    static let rankingLimit = 5
     @Published var selected: ContentModule {
         didSet { persistSelection() }
     }
@@ -44,7 +47,7 @@ final class ChannelViewModel: ObservableObject {
         cursor = nil
         hasMore = true
         do {
-            async let rankTask = repo.ranking(module: selected, limit: 10)
+            async let rankTask = repo.ranking(module: selected, limit: Self.rankingLimit)
             async let feedTask = repo.feed(cursor: nil, module: selected, limit: pageSize)
             let (rankResult, feedResult) = try await (rankTask, feedTask)
             ranking = rankResult
@@ -61,7 +64,7 @@ final class ChannelViewModel: ObservableObject {
         cursor = nil
         hasMore = true
         do {
-            async let rankTask = repo.ranking(module: selected, limit: 10)
+            async let rankTask = repo.ranking(module: selected, limit: Self.rankingLimit)
             async let feedTask = repo.feed(cursor: nil, module: selected, limit: pageSize)
             let (rankResult, feedResult) = try await (rankTask, feedTask)
             ranking = rankResult
